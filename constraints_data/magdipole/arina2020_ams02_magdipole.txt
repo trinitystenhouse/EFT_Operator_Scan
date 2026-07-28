@@ -1,0 +1,13 @@
+# Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (top left)
+# AMS-02 cosmic-ray antiproton constraint (95% CL)
+# Operator: Dirac magnetic dipole (dim-5), s-wave, qq-bar final states
+# y-axis convention: Lambda / C_M  [GeV]  (dim-5 operator)
+# Note: AMS-02 constraint competitive at mchi > ~250 GeV; large astrophysical uncertainty
+# (envelope can shift by factor ~4)
+# mchi_GeV  lambda_plot_GeV
+2.5e2   8.0e3
+5.0e2   1.5e4
+1.0e3   2.5e4
+3.0e3   2.0e4
+1.0e4   1.2e4
+1.0e5   5.0e3

@@ -1,0 +1,12 @@
+# Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (top right)
+# Fermi-LAT gamma-ray line search: Galactic Centre, Einasto profile (95% CL)
+# Operator: Dirac magnetic dipole (dim-5) including dim-6 double-insertion → γγ, γZ
+# y-axis convention: Lambda / C_M  [GeV]  (dim-5 operator)
+# Note: HESS gamma-ray line dominates at high masses in this panel
+# mchi_GeV  lambda_plot_GeV
+1.0e2   5.0e2
+3.0e2   1.0e3
+1.0e3   3.0e3
+3.0e3   8.0e3
+1.0e4   1.5e4
+1.0e5   1.8e4

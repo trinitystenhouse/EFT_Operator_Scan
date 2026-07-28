@@ -1,0 +1,14 @@
+# Arina et al. 2020 (arXiv:2005.12789) - Fig. 14 and Eq. 11
+# LEP invisible Z-decay width constraint (Gamma_inv < 2 MeV)
+# Operator: Dirac magnetic and electric dipole (dim-5) - both identical from Z-decay
+# y-axis convention: Lambda / C_M (or C_el)  [GeV]
+# From paper: Lambda/C > 1 TeV for dim-5
+# Applies for mchi < mZ/2 ~ 45.6 GeV
+# mchi_GeV  lambda_plot_GeV
+1.0e-3  1.0e3
+1.0e-2  1.0e3
+1.0e-1  1.0e3
+1.0e0   1.0e3
+1.0e1   1.0e3
+4.0e1   1.0e3
+4.56e1  1.0e3

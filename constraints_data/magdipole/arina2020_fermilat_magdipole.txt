@@ -1,0 +1,15 @@
+# Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (top left)
+# Fermi-LAT dwarf spheroidal galaxies indirect detection constraint (95% CL)
+# Operator: Dirac magnetic dipole (dim-5), hypercharge form factor, s-wave
+# y-axis convention: Lambda / C_M  [GeV]  (dim-5 operator)
+# mchi_GeV  lambda_plot_GeV
+1.0e0   2.0e2
+3.0e0   4.0e2
+1.0e1   8.0e2
+3.0e1   2.0e3
+1.0e2   5.0e3
+3.0e2   1.0e4
+1.0e3   1.8e4
+3.0e3   1.5e4
+1.0e4   1.0e4
+1.0e5   5.0e3

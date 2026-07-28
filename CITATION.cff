@@ -1,0 +1,79 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite the software release below and the
+  accompanying paper given as the preferred citation.
+type: software
+title: "EFT_Operator_Scan: an effective-operator scan and sensitivity-mapping
+  code for photon-dark matter elastic scattering"
+abstract: >-
+  Computes gamma-chi elastic-scattering optical depths for an effective-operator
+  basis of dimension 5-7 dipole and Rayleigh operators (and their UV
+  completions), builds chi-squared and f_required sensitivity maps against
+  Fermi-LAT gamma-ray spectra, and generates the figures of the accompanying
+  paper.
+authors:
+  - family-names: Stenhouse
+    given-names: T. R.
+  - family-names: Acar
+    given-names: A.
+  - family-names: Bashkanov
+    given-names: M.
+  - family-names: Deppisch
+    given-names: F. F.
+  - family-names: Ghag
+    given-names: C.
+  - family-names: Isaacson
+    given-names: C.
+  - family-names: Watts
+    given-names: D. P.
+license: MIT
+repository-code: "https://github.com/trinitystenhouse/EFT_Operator_Scan"
+version: "1.0.0"
+date-released: "2026-07-28"
+preferred-citation:
+  type: article
+  title: "Photon-Dark Matter Elastic Scattering: An Effective-Operator Scan and
+    First Limits from the Galactic Halo"
+  authors:
+    - family-names: Stenhouse
+      given-names: T. R.
+    - family-names: Acar
+      given-names: A.
+    - family-names: Bashkanov
+      given-names: M.
+    - family-names: Deppisch
+      given-names: F. F.
+    - family-names: Ghag
+      given-names: C.
+    - family-names: Isaacson
+      given-names: C.
+    - family-names: Watts
+      given-names: D. P.
+  journal: "Physical Review D"
+  status: submitted
+  year: 2026
+  identifiers:
+    - type: other
+      value: "arXiv:XXXX.XXXXX"
+      description: "arXiv preprint identifier — placeholder, to be filled in on posting."
+references:
+  - type: article
+    title: "The 20 GeV Galactic Halo Excess: Pixel-Level Confirmation and
+      Consistency with Sub-TeV WIMP Annihilation"
+    authors:
+      - family-names: Stenhouse
+        given-names: T. R.
+      - family-names: Ghag
+        given-names: C.
+      - family-names: Deppisch
+        given-names: F. F.
+    journal: "Physical Review D"
+    status: submitted
+    year: 2026
+    identifiers:
+      - type: other
+        value: "arXiv:2607.08552"
+        description: >-
+          Companion paper. Its pixel-level MCMC Galactic-centre halo posterior
+          is the primary external input required by this repository (see
+          README.md, "External data").

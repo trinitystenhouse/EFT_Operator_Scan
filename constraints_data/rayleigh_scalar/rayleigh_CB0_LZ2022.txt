@@ -1,0 +1,11 @@
+# Approximate digitization from screenshot of Figure 9
+# x: mchi_GeV
+# y: lambda_plot_GeV = Ctilde_W^(-1/2) [GeV], panel with C_B = 0
+# mchi_GeV lambda_plot_GeV
+1.528160e+01 4.041638e+02
+2.608308e+01 6.105402e+02
+4.451935e+01 5.959031e+02
+9.927360e+01 4.041638e+02
+2.213700e+02 2.048686e+02
+6.449094e+02 8.147175e+01
+1.878792e+03 3.239952e+01

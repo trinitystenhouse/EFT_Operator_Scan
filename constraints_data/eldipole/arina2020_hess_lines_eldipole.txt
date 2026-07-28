@@ -1,0 +1,10 @@
+# Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (bottom left)
+# HESS gamma-ray line search: Galactic Centre, Einasto profile (95% CL)
+# Operator: Dirac electric dipole (dim-5) → γγ, γZ only (p-wave for fermion final states)
+# y-axis convention: Lambda / C_el  [GeV]  (dim-5 operator)
+# mchi_GeV  lambda_plot_GeV
+3.0e2   5.0e2
+1.0e3   3.0e3
+3.0e3   1.2e4
+1.0e4   3.5e4
+1.0e5   6.0e4

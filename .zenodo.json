@@ -1,0 +1,60 @@
+{
+  "title": "EFT_Operator_Scan: an effective-operator scan and sensitivity-mapping code for photon-dark matter elastic scattering",
+  "upload_type": "software",
+  "description": "Analysis code accompanying \"Photon-Dark Matter Elastic Scattering: An Effective-Operator Scan and First Limits from the Galactic Halo\" (Stenhouse et al., submitted to Phys. Rev. D). Computes gamma-chi elastic-scattering optical depths for a dimension 5-7 dipole/Rayleigh effective-operator basis and its UV completions, builds chi-squared and f_required sensitivity maps against Fermi-LAT gamma-ray spectra, and generates the paper's figures. The digitised 90% CL exclusion grids needed to reproduce the figures are included; the pixel-level MCMC Galactic-centre halo posterior that is the primary physical input is released separately with the companion paper's own Zenodo archive.",
+  "creators": [
+    {
+      "name": "Stenhouse, T. R.",
+      "affiliation": "University College London"
+    },
+    {
+      "name": "Acar, A.",
+      "affiliation": "University of York"
+    },
+    {
+      "name": "Bashkanov, M.",
+      "affiliation": "University of York"
+    },
+    {
+      "name": "Deppisch, F. F.",
+      "affiliation": "University College London"
+    },
+    {
+      "name": "Ghag, C.",
+      "affiliation": "University College London"
+    },
+    {
+      "name": "Isaacson, C.",
+      "affiliation": "University of York"
+    },
+    {
+      "name": "Watts, D. P.",
+      "affiliation": "University of York"
+    }
+  ],
+  "license": "MIT",
+  "access_right": "open",
+  "keywords": [
+    "dark matter",
+    "photon-dark matter scattering",
+    "effective field theory",
+    "Fermi-LAT",
+    "Galactic halo",
+    "gamma-ray astronomy"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "arXiv:XXXX.XXXXX",
+      "relation": "isSupplementTo",
+      "resource_type": "publication-article",
+      "scheme": "arxiv"
+    },
+    {
+      "identifier": "arXiv:2607.08552",
+      "relation": "cites",
+      "resource_type": "publication-article",
+      "scheme": "arxiv"
+    }
+  ],
+  "notes": "arXiv identifier for the primary paper is a placeholder pending submission; update before final Zenodo deposit. The companion-paper DOI/Zenodo record referenced in README.md should also be filled in once minted."
+}

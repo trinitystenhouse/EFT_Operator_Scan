@@ -1,0 +1,28 @@
+# Source: XENON Collaboration 2023 (XENONnT WIMP Search)
+# arXiv: 2303.14729 (anapole interpretation)
+# Provenance note: arXiv:2303.14729 is the standard spin-independent WIMP
+#   search (PRL 131, 041003) and does not itself publish an anapole
+#   interpretation. This anapole curve is a theory recast of XENONnT data;
+#   the true source should be confirmed before use. A suitable reference is
+#   Ibarra, Reichard & Tomar (2024), arXiv:2408.15760, which derives anapole
+#   limits from LZ/XENON1T.
+# Operator: anapole
+# y-axis: Lambda [GeV], x-axis: mchi [GeV]
+# CL: 90%
+1.00e+01   4.20e+01
+1.50e+01   8.20e+01
+2.00e+01   1.10e+02
+3.00e+01   1.40e+02
+4.00e+01   1.50e+02
+5.00e+01   1.45e+02
+7.50e+01   1.30e+02
+1.00e+02   1.15e+02
+1.50e+02   1.00e+02
+2.00e+02   9.10e+01
+3.00e+02   7.80e+01
+5.00e+02   6.60e+01
+7.50e+02   5.80e+01
+1.00e+03   5.20e+01
+2.00e+03   4.30e+01
+5.00e+03   3.20e+01
+1.00e+04   2.60e+01

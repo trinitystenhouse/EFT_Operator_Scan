@@ -1,0 +1,46 @@
+# XENONnT Constraints on Majorana Anapole Moment
+# Operator: Dimension-6. Convention: Lambda_eff = Lambda / sqrt(C_A)
+# Units: mchi_GeV vs lambda_plot_GeV. 90% CL Lower Limit.
+# NOTE: XENONnT W2 atomic response sign error correction weakens low-mass
+# bounds by ~factor 2 vs previously published values. These numbers
+# may not yet incorporate that correction.
+# WARNING: Numbers are AI-generated estimates, NOT digitised from figures.
+# Verify against arXiv:2207.11330 (XENONnT) before use in publication.
+5.0000e+00 1.8500e+01
+6.1557e+00 3.3000e+01
+7.5786e+00 5.8000e+01
+9.3303e+00 9.5000e+01
+1.1487e+01 1.4500e+02
+1.4142e+01 2.1000e+02
+1.7411e+01 2.8500e+02
+2.1435e+01 3.6000e+02
+2.6390e+01 4.2500e+02
+3.2489e+01 4.7500e+02
+4.0000e+01 5.0500e+02
+4.9246e+01 5.2000e+02
+6.0629e+01 5.1500e+02
+7.4643e+01 4.9500e+02
+9.1896e+01 4.6500e+02
+1.1314e+02 4.2500e+02
+1.3929e+02 3.8500e+02
+1.7149e+02 3.4500e+02
+2.1113e+02 3.0500e+02
+2.5993e+02 2.6500e+02
+3.2001e+02 2.3500e+02
+3.9398e+02 2.0500e+02
+4.8505e+02 1.8000e+02
+5.9716e+02 1.5500e+02
+7.3519e+02 1.3500e+02
+9.0513e+02 1.1500e+02
+1.1143e+03 1.0000e+02
+1.3719e+03 8.5500e+01
+1.6890e+03 7.3500e+01
+2.0794e+03 6.3000e+01
+2.5601e+03 5.4000e+01
+3.1518e+03 4.6500e+01
+3.8804e+03 3.9500e+01
+4.7773e+03 3.4000e+01
+5.8815e+03 2.9000e+01
+7.2410e+03 2.5000e+01
+8.9147e+03 2.1500e+01
+1.0000e+04 1.9500e+01
