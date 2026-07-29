@@ -64,6 +64,7 @@ COL_THIS = "black"
 COL_COLLIDER = "#FF7AC6"
 COL_BEAMDUMP = "#FFD25E"
 COL_ASTRO    = "#71D6FF"
+COL_GUIDE    = "#666666"   # neutral grey for reference bands / guides
 COL_PERTURB  = "#B18CFF"
 
 # Physical constants
@@ -295,7 +296,9 @@ def draw_ew_doublet_panel(ax, base_fs=10, linewidth=1.4,
               color=col_coll, lw=linewidth * 1.3, ls="-", zorder=4,
               label=r"EW doublet, $\mu \sim e g^{2}/64\pi^{2} m_\chi$")
 
-    ax.axvspan(*mann_window, color=COL_BEAMDUMP, alpha=0.45, zorder=0,
+    # Neutral grey, deliberately NOT the gold used for exclusion elsewhere in
+    # the figure: this band marks a reference mass window, not a bound.
+    ax.axvspan(*mann_window, color=COL_GUIDE, alpha=0.22, zorder=0,
                label=r"Halo best-fit $m_\chi^{\rm ann}$")
 
     # Region labels and the headline number: at the halo best-fit annihilator
@@ -317,9 +320,6 @@ def draw_ew_doublet_panel(ax, base_fs=10, linewidth=1.4,
             fr"$\approx{_dec:.0f}$ decades",
             color="0.15", fontsize=base_fs - 2.5, fontweight="bold",
             ha="left", va="center", rotation=90, zorder=10, bbox=_txt_bbox)
-    ax.text(9.5e3, 5.0e-7, "Predicted doublet dipole",
-            color=col_coll, fontsize=base_fs - 2.5, fontweight="bold",
-            ha="right", va="bottom", zorder=10, bbox=_txt_bbox)
 
     ax.set_xlim(_D_XMIN, _D_XMAX)
     ax.set_ylim(_D_YMIN, _D_YMAX)

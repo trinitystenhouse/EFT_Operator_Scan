@@ -1152,20 +1152,23 @@ def f5_uv_translation_bounds(out_dir: Path) -> Path:
     # matching of Eq. (VI.1) [dh_to_rayleigh] breaks down and the halo
     # diagonals in this region are extrapolations. A light wash plus an
     # explicit boundary line, so it does not muddy the exclusion shading.
-    ax_h.axvspan(_H_XMIN, _M_MATCH, color="0.55", alpha=0.13, zorder=0, lw=0)
-    ax_h.axvline(_M_MATCH, color="0.40", ls=(0, (4, 3)), lw=LINEWIDTH * 0.9, zorder=2)
+    ax_h.axvspan(_H_XMIN, _M_MATCH, color=COL_GUIDE, alpha=0.13, zorder=0, lw=0)
+    ax_h.axvline(_M_MATCH, color=COL_GUIDE, ls=(0, (4, 3)), lw=LINEWIDTH * 0.9, zorder=2)
     ax_h.text(1.4e-3, 2.2e12, "contact-limit extrapolation",
               ha="left", va="center",
               color="0.30", fontsize=ANNOT_FS - 1, zorder=6,
               bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.70))
 
-    # Three tints of the "this work" colour. The 100 MeV and 1 GeV curves
-    # agree to ~2% (the m_chi dependence cancels in y_{chi H} except through
-    # the halo scale), so they would otherwise plot on top of one another:
-    # the lighter curve is drawn wide underneath and the darker one narrow on
-    # top, which shows both without displacing either.
-    _MCHI_COLORS = ["#F1824D", "#FFB183", "#8E3711"]
-    _MCHI_LWS    = [1.3, 2.8, 1.0]
+    # One colour for every "this work" curve -- cols[5], the same halo colour
+    # the right-hand panel uses -- with the benchmarks separated by linestyle
+    # alone. The 100 MeV and 1 GeV curves agree to ~2% (the m_chi dependence
+    # cancels in y_{chi H} except through the halo scale) and would otherwise
+    # plot on top of one another, so the second is drawn wide and pale
+    # underneath and the third narrow and solid-toned on top: both stay
+    # visible without either being displaced or recoloured.
+    _MCHI_COLORS = [cols[5]] * 3
+    _MCHI_LWS    = [1.3, 2.6, 1.0]
+    _MCHI_ALPHAS = [1.0, 0.40, 1.0]
 
     for _k, _m_chi in enumerate(FIG5_MCHI_LIST):
         _sin_theta = dark_higgs_bound(m_hp, m_chi_GeV=_m_chi)
@@ -1175,6 +1178,7 @@ def f5_uv_translation_bounds(out_dir: Path) -> Path:
             color=_MCHI_COLORS[_k % len(_MCHI_COLORS)],
             lw=LINEWIDTH * _MCHI_LWS[_k % len(_MCHI_LWS)],
             ls=_MCHI_STYLES[_k % len(_MCHI_STYLES)],
+            alpha=_MCHI_ALPHAS[_k % len(_MCHI_ALPHAS)],
             zorder=4 + _k,
             label=fr"This work, {_mchi_legend(_m_chi)}",
         )
@@ -1192,22 +1196,14 @@ def f5_uv_translation_bounds(out_dir: Path) -> Path:
     ax_h.grid(True, which="major", alpha=0.18)
 
     # --- Region annotations (y_{chi H} plane) ---
-    # What the diagonals are, in the empty wedge above and to the left of them.
-    ax_h.annotate(
-        "Halo-required coupling",
-        xy=(3.0e-2, 3.0e3), xytext=(1.6e-3, 4.0e7),
-        color=FIG5_DH_LABEL_COLOR, fontsize=FIG5_DH_LABEL_FS, fontweight="bold",
-        ha="left", va="center", zorder=10,
-        arrowprops=dict(arrowstyle="->", color=FIG5_DH_LABEL_COLOR,
-                        lw=0.9, shrinkA=2, shrinkB=2),
-    )
-    # The two sides of the achievable-coupling ceiling.
+    # The two sides of the achievable-coupling ceiling. The diagonals
+    # themselves are named in the legend, so they carry no separate label.
     ax_h.text(2.2e3, 1.2e3, "Excluded / non-perturbative",
               color=FIG5_DH_LABEL_COLOR, fontsize=FIG5_DH_LABEL_FS,
               fontweight="bold", ha="right", va="bottom", zorder=10,
               bbox=dict(boxstyle="round,pad=0.18", fc="white", ec="none", alpha=0.72))
     ax_h.text(1.4e-3, 0.30,
-              fr"Achievable: LHC $\otimes$ pert., $y_{{\chi H}}\leq{y_lhc_pert:.1f}$",
+              fr"LHC $\otimes$ pert.: $y_{{\chi H}}\leq{y_lhc_pert:.1f}$",
               color=FIG5_DH_LABEL_COLOR, fontsize=FIG5_DH_LABEL_FS,
               fontweight="bold", ha="left", va="center", zorder=10)
 
