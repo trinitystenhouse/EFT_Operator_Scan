@@ -135,10 +135,11 @@ def dark_photon_bound(M_Aprime_GeV: np.ndarray,
         |epsilon|_max = (M_A'^2 / g_chi) / Lambda_a^2.
     """
     raise RuntimeError(
-        "Not applicable: the anapole/charge-radius operators couple through "
+        "RETIRED 2026-07-17: the anapole/charge-radius operators couple through "
         "d^nu F_nu_mu, whose on-shell photon vertex vanishes identically -- the "
         "tree-level gamma chi -> gamma chi cross section is exactly zero, so halo "
-        "attenuation places no bound on (epsilon, M_A'). See Sec. V.C."
+        "attenuation places NO bound on (epsilon, M_A'). "
+        "See VERIFICATION_eft_realphoton_fix.md and the revised Sec. V.C."
     )
 
 
@@ -219,9 +220,10 @@ def draw_dark_higgs_panel(ax, m_chi_GeV=500.0, base_fs=10, linewidth=1.4):
 def ew_doublet_dipole_bound():
     """Halo 90%CL upper bound on the DM magnetic dipole moment mu(m_chi).
 
-    The dipole Compton cross section depends only on mu = 2 c_M/Lambda, so
-    the halo boundary Lambda(m_chi) at c_M = 1 converts directly to an
-    excluded dipole moment mu >= 2/Lambda.
+    ADDED 2026-07-17 (replaces the retired dark-photon translation).
+    The corrected dipole Compton cross section depends only on mu = 2 c_M/Lambda
+    (VERIFICATION_eft_realphoton_fix.md), so the halo boundary Lambda(m_chi) at
+    c_M = 1 converts directly to an excluded dipole moment mu >= 2/Lambda.
     Returns (m_grid [GeV], mu_bound [GeV^-1]).
     """
     m_grid, lam_grid = _load_halo_lambda("dipole_magnetic", "fermionic")
@@ -242,25 +244,35 @@ def draw_ew_doublet_panel(ax, base_fs=10, linewidth=1.4,
     """(m_chi, mu) plane: halo dipole-attenuation bound vs the one-loop dipole
     of a Dirac electroweak doublet -- the higgsino-like candidate class the
     companion halo fit prefers."""
+    _D_XMIN, _D_XMAX = 1e0, 1e4
+    _D_YMIN, _D_YMAX = 1e-8, 1e3
+
     m_b, mu_b = ew_doublet_dipole_bound()
-    ax.loglog(m_b, mu_b, color=col_this, lw=linewidth * 1.4,
+    # Everything above the halo curve is a larger dipole moment, hence more
+    # scattering than the Fermi-LAT halo spectrum allows: shade it as excluded
+    # with a hatched brush on the boundary, the usual exclusion-plot idiom.
+    ax.fill_between(m_b, mu_b, _D_YMAX, color=col_this, alpha=0.10, lw=0, zorder=0)
+    ax.fill_between(m_b, mu_b, np.minimum(mu_b * 40.0, _D_YMAX),
+                    facecolor="none", hatch="////", edgecolor=col_this,
+                    lw=0.0, alpha=0.40, zorder=1)
+    ax.loglog(m_b, mu_b, color=col_this, lw=linewidth * 1.4, zorder=4,
               label="Halo attenuation (this work)")
 
     # CMB dipole boundary (same mu = 2/Lambda conversion).
     #
-    # The Planck CMB dipole bound is genuinely off-scale for the (m_chi, mu)
-    # window shown here, so it is intentionally not drawn (and no legend entry
-    # is emitted, to avoid advertising a curve that never appears in the
-    # frame).  The Boddy & Gluscevic (2018) bound is applied by
-    # constraint_generation/cmb_constraints.py at the CMB temperature
-    # E = T_CMB0 ~ 2.3e-13 GeV, where the n=2 dipole cross section is so
-    # suppressed that the excluded scale is Lambda ~ 1e-13-1e-5 GeV, i.e.
+    # NOTE (2026-07-24): the Planck CMB dipole bound is genuinely OFF-SCALE for
+    # the (m_chi, mu) window shown here, so it is intentionally NOT drawn (and no
+    # legend entry is emitted -- the previous phantom "CMB (Planck 2018)" entry
+    # advertised a curve that never appeared in the frame).  The Boddy & Gluscevic
+    # (2018) bound is applied by constraint_generation/cmb_constraints.py at the
+    # CMB temperature E = T_CMB0 ~ 2.3e-13 GeV, where the n=2 dipole cross section
+    # is so suppressed that the excluded scale is Lambda ~ 1e-13-1e-5 GeV, i.e.
     # mu = 2/Lambda ~ 1e5-1e12 GeV^-1 -- three to ten decades above the top of
     # this panel (ylim = 1e-8..1e3).  The CMB dipole bound only becomes
     # competitive for m_chi < few MeV, off the left edge of this GeV-TeV panel.
-    # The curve is only overlaid if it actually intersects the plotted
-    # mu-range; otherwise it is omitted rather than shown as an invisible
-    # off-frame line.
+    # We therefore only overlay it if the converted curve actually intersects the
+    # plotted mu-range; with the current (correct) data it does not, so it is
+    # silently omitted rather than shown as an invisible off-frame line.
     cmb_path = BOUNDARY_DIR / "cmb_fermionic_dipole_magnetic_planck2018.npz"
     if cmb_path.exists():
         d = np.load(cmb_path, allow_pickle=True)
@@ -280,14 +292,37 @@ def draw_ew_doublet_panel(ax, base_fs=10, linewidth=1.4,
 
     m_grid = np.logspace(0, 4, 200)
     ax.loglog(m_grid, ew_doublet_dipole_prediction(m_grid),
-              color=col_coll, lw=linewidth, ls="-",
+              color=col_coll, lw=linewidth * 1.3, ls="-", zorder=4,
               label=r"EW doublet, $\mu \sim e g^{2}/64\pi^{2} m_\chi$")
 
-    ax.axvspan(*mann_window, color=COL_BEAMDUMP, alpha=0.35, zorder=0,
+    ax.axvspan(*mann_window, color=COL_BEAMDUMP, alpha=0.45, zorder=0,
                label=r"Halo best-fit $m_\chi^{\rm ann}$")
 
-    ax.set_xlim(1e0, 1e4)
-    ax.set_ylim(1e-8, 1e3)
+    # Region labels and the headline number: at the halo best-fit annihilator
+    # mass the predicted doublet dipole sits this far below anything the halo
+    # spectrum can currently reach. Computed here, never hard-coded.
+    _m_mid = float(np.sqrt(mann_window[0] * mann_window[1]))
+    _mu_bound = float(10.0 ** np.interp(np.log10(_m_mid), np.log10(m_b), np.log10(mu_b)))
+    _mu_pred = float(ew_doublet_dipole_prediction(np.array([_m_mid]))[0])
+    _dec = np.log10(_mu_bound / _mu_pred)
+
+    _txt_bbox = dict(boxstyle="round,pad=0.18", fc="white", ec="none", alpha=0.72)
+    ax.text(1.3e0, 1.5e2, "Excluded by halo attenuation",
+            color=col_this, fontsize=base_fs - 2.5, fontweight="bold",
+            ha="left", va="center", zorder=10, bbox=_txt_bbox)
+    ax.annotate("", xy=(_m_mid, _mu_bound), xytext=(_m_mid, _mu_pred),
+                arrowprops=dict(arrowstyle="<->", color="0.25", lw=1.1,
+                                shrinkA=0, shrinkB=0), zorder=7)
+    ax.text(_m_mid * 2.1, np.sqrt(_mu_bound * _mu_pred),
+            fr"$\approx{_dec:.0f}$ decades",
+            color="0.15", fontsize=base_fs - 2.5, fontweight="bold",
+            ha="left", va="center", rotation=90, zorder=10, bbox=_txt_bbox)
+    ax.text(9.5e3, 5.0e-7, "Predicted doublet dipole",
+            color=col_coll, fontsize=base_fs - 2.5, fontweight="bold",
+            ha="right", va="bottom", zorder=10, bbox=_txt_bbox)
+
+    ax.set_xlim(_D_XMIN, _D_XMAX)
+    ax.set_ylim(_D_YMIN, _D_YMAX)
     ax.set_xlabel(r"$m_\chi$ [GeV]", fontsize=base_fs)
     ax.set_ylabel(r"$\mu$ [GeV$^{-1}$]", fontsize=base_fs)
     ax.set_title(r"Electroweak-doublet dipole", fontsize=base_fs + 1)
@@ -354,9 +389,9 @@ def main(argv=None) -> int:
                     n_colors=14, cmap_name="plasma")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    # Dark-photon panel omitted (anapole/CR real-photon amplitude is exactly
-    # zero at tree level -- no halo bound exists on (epsilon, M_A')). Shown
-    # instead: the electroweak-doublet dipole panel.
+    # 2026-07-17: dark-photon panel removed (anapole/CR real-photon amplitude
+    # is exactly zero at tree level -- no halo bound exists on (epsilon, M_A')).
+    # Replaced by the electroweak-doublet dipole panel.
     fig, (ax_h, ax_d) = plt.subplots(1, 2, figsize=(args.fig_width, args.fig_height))
     draw_dark_higgs_panel(ax_h, m_chi_GeV=args.mchi,
                           base_fs=args.base_fontsize, linewidth=args.linewidth)

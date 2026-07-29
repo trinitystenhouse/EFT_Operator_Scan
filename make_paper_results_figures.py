@@ -1073,16 +1073,17 @@ def f4_multi_dataset_overlay(out_dir: Path) -> Path:
 def f5_uv_translation_bounds(out_dir: Path) -> Path:
     """
     §V Fig 5: UV translation of the halo bound.
-    Left panel: dark-Higgs portal (sin theta, m_h') plane using the scalar
-    Rayleigh halo bound and Eq. (dh_to_rayleigh).
+    Single panel (UPDATED 2026-07-17): dark-Higgs portal (sin theta, m_h')
+    plane using the scalar Rayleigh halo bound and Eq. (dh_to_rayleigh).
 
-    A kinetically-mixed dark photon panel on the (epsilon, M_A') plane via
-    anapole/charge-radius matching is not shown: those operators couple
-    through d^nu F_nu_mu, whose on-shell photon vertex vanishes identically,
-    so halo attenuation places no tree-level bound on (epsilon, M_A'). The
-    right panel instead shows the electroweak-doublet (higgsino-like) dipole
-    case: the halo dipole bound converted to mu = 2 c_M/Lambda against the
-    one-loop doublet prediction. See §V.C/§V.D of the text.
+    The former right panel (kinetically-mixed dark photon on the
+    (epsilon, M_A') plane via the anapole/charge-radius matching) has been
+    REMOVED: those operators couple through d^nu F_nu_mu, whose on-shell
+    photon vertex vanishes identically, so halo attenuation places NO
+    tree-level bound on (epsilon, M_A'). It is replaced by the
+    electroweak-doublet (higgsino-like) dipole panel: the halo dipole bound
+    converted to mu = 2 c_M/Lambda against the one-loop doublet prediction.
+    See §V.C/§V.D of the revised text and VERIFICATION_eft_realphoton_fix.md.
     """
     from make_uv_translation_bounds import (
         dark_higgs_bound,
@@ -1102,39 +1103,28 @@ def f5_uv_translation_bounds(out_dir: Path) -> Path:
     _MCHI_STYLES = ["-", (0, (5, 2)), (0, (7, 2, 1, 2)), (0, (2, 1.5))]
 
     # --- Left panel: dark-Higgs ------------------------------------------
-    # Plot the physical dark-portal coupling
+    # PHYSICAL y-axis (fixed 2026-07-24): plot the REQUIRED dark-portal coupling
     #   y_{chi H} = y_chi * sin(theta) = (m_chi / v') * sin(theta),
-    # not |sin theta| itself.  The halo bounds the Rayleigh Wilson coefficient
+    # NOT |sin theta| itself.  The halo bounds the Rayleigh Wilson coefficient
     #   c_r / Lambda^3 ~ (alpha / pi v) * y_{chi H} / m_h'^2 * F_loop,
     # so the quantity the data actually constrains is y_{chi H}.  Plotting it
     #   (i)  keeps the axis physical -- a |sin theta| axis running up to ~1e12 is
     #        meaningless because a mixing sine cannot exceed 1; and
     #   (ii) turns the perturbativity/unitarity ceiling into a genuine HORIZONTAL
     #        line: y_chi <= sqrt(4 pi) together with |sin theta| <= 1 imposes
-    #        y_{chi H} <= sqrt(4 pi), independent of m_h'.  The m_h'^2 growth of
-    #        the naive perturbativity bound lives (correctly) in the halo
-    #        diagonals themselves.  Note the m_chi-1/m_chi factors cancel in
-    #        y_{chi H}, so the three benchmark curves differ only through the
-    #        m_chi-dependence of the halo scale Lambda_R.
+    #        y_{chi H} <= sqrt(4 pi), independent of m_h'.  The m_h'^2 growth that
+    #        the co-author expected the perturbativity bound to track now lives
+    #        (correctly) in the halo diagonals themselves.  Note the m_chi-1/m_chi
+    #        factors cancel in y_{chi H}, so the three benchmark curves differ only
+    #        through the m_chi-dependence of the halo scale Lambda_R.
     m_hp = np.logspace(-3, 3.5, 200)
 
-    # --- Heavy-mediator matching validity: shade m_h' < 5 GeV -------------
-    # Below m_h' ~ 5 GeV the mediator is no longer heavy compared to the
-    # photon energies used here, so the contact-limit (heavy-mediator)
-    # matching of Eq. (VI.1) [dh_to_rayleigh] breaks down and the halo
-    # diagonals in this region are extrapolations. Drawn UNDER the curves
-    # (low zorder) as light, semi-transparent grey; the diagonals stay visible.
-    ax_h.axvspan(1e-3, 5.0, color="0.6", alpha=0.25, zorder=0, lw=0)
-
-    for _k, _m_chi in enumerate(FIG5_MCHI_LIST):
-        _sin_theta = dark_higgs_bound(m_hp, m_chi_GeV=_m_chi)
-        _y_chiH = (_m_chi / V_EW) * _sin_theta          # = y_chi * sin(theta)
-        ax_h.loglog(
-            m_hp, _y_chiH,
-            color=FIG1_HIGGS_COLOR, lw=LINEWIDTH * 1.3,
-            ls=_MCHI_STYLES[_k % len(_MCHI_STYLES)],
-            label=fr"This work, {_mchi_legend(_m_chi)}",
-        )
+    # Panel window, fixed up front so every annotation anchor below is
+    # unambiguous. The lower limit is 1e-1: nothing in the panel lives below
+    # the achievable-coupling ceiling, so the old 1e-2 floor was dead space.
+    _H_XMIN, _H_XMAX = 1e-3, 3e3
+    _H_YMIN, _H_YMAX = 1e-1, 1e14
+    _M_MATCH = 5.0          # GeV, contact-limit validity floor
 
     # Perturbativity + unitarity ceiling on the portal coupling.
     #   y_chi <= sqrt(4 pi)  AND  |sin theta| <= 1   ==>   y_{chi H} <= sqrt(4 pi).
@@ -1143,45 +1133,103 @@ def f5_uv_translation_bounds(out_dir: Path) -> Path:
     y_pert = np.sqrt(4 * np.pi)                          # ~ 3.545
     sin_lhc = lhc_higgs_signal_strength()               # 0.33
     y_lhc_pert = sin_lhc * y_pert                        # ~ 1.17
-    _Y_TOP = 1e16
-    ax_h.fill_between(m_hp, y_lhc_pert, _Y_TOP * 1e2,
-                      color=FIG1_EXCLUSION_FILL_COLOR, alpha=0.22)
-    ax_h.axhline(y_lhc_pert, color=FIG1_EXCLUSION_TEXT_COLOR, lw=LINEWIDTH, ls="-",
-                 label=fr"LHC $\otimes$ pert., $y_{{\chi H}}\leq{y_lhc_pert:.1f}$")
-    ax_h.axhline(y_pert, color=FIG5_PERTURB_LABEL_COLOR, lw=LINEWIDTH, ls=":",
-                 label="_nolegend_")
-    ax_h.text(
-        0.035, 0.045,
-        r"Perturbativity + unitarity ($y_\chi=\sqrt{4\pi},\ |\sin\theta|\leq1$)",
-        transform=ax_h.transAxes,
-        color=FIG5_PERTURB_LABEL_COLOR,
-        fontsize=FIG5_PERTURB_LABEL_FS,
-        fontweight="bold",
-        ha="left", va="center", zorder=10,
-    )
-    ax_h.set_xlim(1e-3, 3e3)
-    ax_h.set_ylim(1e-2, 1e12)
+
+    _gold_edge = FIG1_EXCLUSION_TEXT_COLOR
+    _xspan = np.array([_H_XMIN, _H_XMAX])
+
+    # Excluded region: a faint wash over the whole excluded half-plane plus a
+    # hatched brush along the boundary. The wash is deliberately light -- it
+    # covers most of the panel, so a heavy fill buries the curves under it.
+    ax_h.fill_between(_xspan, y_lhc_pert, _H_YMAX,
+                      color=FIG1_EXCLUSION_FILL_COLOR, alpha=0.10, lw=0, zorder=0)
+    ax_h.fill_between(_xspan, y_lhc_pert, y_lhc_pert * 14.0,
+                      facecolor="none", hatch="////", edgecolor=_gold_edge,
+                      lw=0.0, alpha=0.45, zorder=1)
+
+    # --- Heavy-mediator matching validity: m_h' < 5 GeV -------------------
+    # Below m_h' ~ 5 GeV the mediator is no longer heavy compared to the
+    # photon energies used here, so the contact-limit (heavy-mediator)
+    # matching of Eq. (VI.1) [dh_to_rayleigh] breaks down and the halo
+    # diagonals in this region are extrapolations. A light wash plus an
+    # explicit boundary line, so it does not muddy the exclusion shading.
+    ax_h.axvspan(_H_XMIN, _M_MATCH, color="0.55", alpha=0.13, zorder=0, lw=0)
+    ax_h.axvline(_M_MATCH, color="0.40", ls=(0, (4, 3)), lw=LINEWIDTH * 0.9, zorder=2)
+    ax_h.text(1.4e-3, 2.2e12, "contact-limit extrapolation",
+              ha="left", va="center",
+              color="0.30", fontsize=ANNOT_FS - 1, zorder=6,
+              bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.70))
+
+    # Three tints of the "this work" colour. The 100 MeV and 1 GeV curves
+    # agree to ~2% (the m_chi dependence cancels in y_{chi H} except through
+    # the halo scale), so they would otherwise plot on top of one another:
+    # the lighter curve is drawn wide underneath and the darker one narrow on
+    # top, which shows both without displacing either.
+    _MCHI_COLORS = ["#F1824D", "#FFB183", "#8E3711"]
+    _MCHI_LWS    = [1.3, 2.8, 1.0]
+
+    for _k, _m_chi in enumerate(FIG5_MCHI_LIST):
+        _sin_theta = dark_higgs_bound(m_hp, m_chi_GeV=_m_chi)
+        _y_chiH = (_m_chi / V_EW) * _sin_theta          # = y_chi * sin(theta)
+        ax_h.loglog(
+            m_hp, _y_chiH,
+            color=_MCHI_COLORS[_k % len(_MCHI_COLORS)],
+            lw=LINEWIDTH * _MCHI_LWS[_k % len(_MCHI_LWS)],
+            ls=_MCHI_STYLES[_k % len(_MCHI_STYLES)],
+            zorder=4 + _k,
+            label=fr"This work, {_mchi_legend(_m_chi)}",
+        )
+
+    ax_h.axhline(y_lhc_pert, color=_gold_edge, lw=LINEWIDTH * 1.25, ls="-", zorder=5)
+    ax_h.axhline(y_pert, color=_gold_edge, lw=LINEWIDTH * 0.9, ls=":", zorder=5)
+
+    ax_h.set_xlim(_H_XMIN, _H_XMAX)
+    ax_h.set_ylim(_H_YMIN, _H_YMAX)
+    ax_h.set_yticks([1e0, 1e2, 1e4, 1e6, 1e8, 1e10, 1e12, 1e14])
     ax_h.set_xlabel(r"$m_{h'}$ [GeV]", fontsize=BASE_FS)
     ax_h.set_ylabel(r"$y_{\chi H}=y_\chi\,|\sin\theta|$", fontsize=BASE_FS)
     ax_h.set_title(r"Dark-Higgs portal", fontsize=BASE_FS + 1)
     ax_h.tick_params(labelsize=BASE_FS - 2)
-    ax_h.grid(True, which="both", alpha=0.2)
-    # --- Region annotations (y_{chi H} plane) ---
-    ax_h.text(
-        0.045, 0.72, "Required coupling\n(halo-relevant signal)",
-        transform=ax_h.transAxes,
-        color=FIG5_DH_LABEL_COLOR, fontsize=FIG5_DH_LABEL_FS,
-        fontweight="bold", ha="left", va="center", zorder=10,
-    )
-    ax_h.text(
-        0.72, 0.13, "Excluded / non-perturbative",
-        transform=ax_h.transAxes,
-        color=FIG5_DH_LABEL_COLOR, fontsize=FIG5_DH_LABEL_FS,
-        fontweight="bold", ha="center", va="center", zorder=10,
-    )
-    ax_h.legend(**FIG5_LEGEND_KW, **LEGEND_KW)
+    ax_h.grid(True, which="major", alpha=0.18)
 
-    # --- Right panel: electroweak-doublet dipole -------------------------
+    # --- Region annotations (y_{chi H} plane) ---
+    # What the diagonals are, in the empty wedge above and to the left of them.
+    ax_h.annotate(
+        "Halo-required coupling",
+        xy=(3.0e-2, 3.0e3), xytext=(1.6e-3, 4.0e7),
+        color=FIG5_DH_LABEL_COLOR, fontsize=FIG5_DH_LABEL_FS, fontweight="bold",
+        ha="left", va="center", zorder=10,
+        arrowprops=dict(arrowstyle="->", color=FIG5_DH_LABEL_COLOR,
+                        lw=0.9, shrinkA=2, shrinkB=2),
+    )
+    # The two sides of the achievable-coupling ceiling.
+    ax_h.text(2.2e3, 1.2e3, "Excluded / non-perturbative",
+              color=FIG5_DH_LABEL_COLOR, fontsize=FIG5_DH_LABEL_FS,
+              fontweight="bold", ha="right", va="bottom", zorder=10,
+              bbox=dict(boxstyle="round,pad=0.18", fc="white", ec="none", alpha=0.72))
+    ax_h.text(1.4e-3, 0.30,
+              fr"Achievable: LHC $\otimes$ pert., $y_{{\chi H}}\leq{y_lhc_pert:.1f}$",
+              color=FIG5_DH_LABEL_COLOR, fontsize=FIG5_DH_LABEL_FS,
+              fontweight="bold", ha="left", va="center", zorder=10)
+
+    # The headline number: how far the required coupling sits above anything
+    # achievable. Measured on the LOWEST (most conservative) benchmark and
+    # computed here rather than hard-coded, so it cannot go stale.
+    _x_gap = 1.0e2
+    _m0 = FIG5_MCHI_LIST[0]
+    _y_gap_hi = float((_m0 / V_EW) * dark_higgs_bound(np.array([_x_gap]), m_chi_GeV=_m0)[0])
+    _decades = np.log10(_y_gap_hi / y_lhc_pert)
+    ax_h.annotate("", xy=(_x_gap, _y_gap_hi), xytext=(_x_gap, y_lhc_pert),
+                  arrowprops=dict(arrowstyle="<->", color="0.25", lw=1.1,
+                                  shrinkA=0, shrinkB=0), zorder=7)
+    ax_h.text(_x_gap * 1.9, np.sqrt(y_lhc_pert * _y_gap_hi),
+              fr"$\gtrsim{_decades:.0f}$ decades",
+              color="0.15", fontsize=ANNOT_FS, fontweight="bold",
+              ha="left", va="center", rotation=90, zorder=10,
+              bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.70))
+
+    ax_h.legend(**{**FIG5_LEGEND_KW, "ncol": 1}, **LEGEND_KW)
+
+    # --- Right panel: electroweak-doublet dipole (added 2026-07-17) -------
     draw_ew_doublet_panel(ax_d, base_fs=BASE_FS, linewidth=LINEWIDTH, col_coll=cols[3], col_this=cols[5])
 
     fig.tight_layout(rect=[0, 0.18, 1, 1])
