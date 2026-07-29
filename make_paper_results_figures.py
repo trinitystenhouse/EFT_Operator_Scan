@@ -1198,9 +1198,12 @@ def f5_uv_translation_bounds(out_dir: Path) -> Path:
     # --- Region annotations (y_{chi H} plane) ---
     # The two sides of the achievable-coupling ceiling. The diagonals
     # themselves are named in the legend, so they carry no separate label.
-    ax_h.text(2.2e3, 1.2e3, "Excluded / non-perturbative",
+    # Sits below the rotated decade label and to the right of the gap arrow,
+    # so nothing crosses anything else. The caption carries the fuller
+    # "excluded, non-perturbative" wording.
+    ax_h.text(2.2e3, 2.5e2, "Excluded",
               color=FIG5_DH_LABEL_COLOR, fontsize=FIG5_DH_LABEL_FS,
-              fontweight="bold", ha="right", va="bottom", zorder=10,
+              fontweight="bold", ha="right", va="center", zorder=10,
               bbox=dict(boxstyle="round,pad=0.18", fc="white", ec="none", alpha=0.72))
     ax_h.text(1.4e-3, 0.30,
               fr"LHC $\otimes$ pert.: $y_{{\chi H}}\leq{y_lhc_pert:.1f}$",
