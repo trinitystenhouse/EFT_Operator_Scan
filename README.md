@@ -194,10 +194,20 @@ is absent; you can also pass an explicit path.
 
 ## Citation
 
-See `CITATION.cff`. In brief: cite the paper above once the arXiv number is
-assigned, and this software release via its Zenodo DOI (`.zenodo.json`); if
-your work also depends on the halo posterior itself, cite the companion
-paper (arXiv:2607.08552) and its own data release.
+If you use this code, please cite the paper:
+
+> T. R. Stenhouse, A. Acar, M. Bashkanov, F. F. Deppisch, C. Ghag,
+> C. Isaacson and D. P. Watts, "Photon-Dark Matter Elastic Scattering: An
+> Effective-Operator Scan and First Limits from the Galactic Halo," submitted
+> to Phys. Rev. D (2026).
+
+If your work depends on the Galactic-centre halo posterior itself, please also
+cite the companion analysis and its release:
+
+> T. R. Stenhouse, C. Ghag and F. F. Deppisch, "The 20 GeV Galactic Halo
+> Excess: Pixel-Level Confirmation and Consistency with Sub-TeV WIMP
+> Annihilation," arXiv:2607.08552; release
+> [doi:10.5281/zenodo.21280725](https://doi.org/10.5281/zenodo.21280725).
 
 ## License
 

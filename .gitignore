@@ -21,3 +21,4 @@ mcmc/
 *.fits
 
 # Tracked inputs (do NOT ignore): constraint_boundaries/, data/, constraints_data/
+.pytest_cache/
