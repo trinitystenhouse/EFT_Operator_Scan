@@ -32,7 +32,7 @@
       "affiliation": "University of York"
     }
   ],
-  "license": "MIT",
+  "license": "mit",
   "access_right": "open",
   "keywords": [
     "dark matter",
@@ -43,12 +43,6 @@
     "gamma-ray astronomy"
   ],
   "related_identifiers": [
-    {
-      "identifier": "arXiv:XXXX.XXXXX",
-      "relation": "isSupplementTo",
-      "resource_type": "publication-article",
-      "scheme": "arxiv"
-    },
     {
       "identifier": "arXiv:2607.08552",
       "relation": "cites",
@@ -62,5 +56,5 @@
       "scheme": "doi"
     }
   ],
-  "notes": "The arXiv identifier for the primary paper is a placeholder pending submission and should be updated before the final Zenodo deposit."
+  "notes": "Once the primary paper has an arXiv identifier, add it to related_identifiers as {\"identifier\": \"arXiv:NNNN.NNNNN\", \"relation\": \"isSupplementTo\", \"resource_type\": \"publication-article\", \"scheme\": \"arxiv\"}. Do not commit a placeholder there: Zenodo validates related identifiers against their declared scheme and rejects the deposition."
 }

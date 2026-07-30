@@ -52,10 +52,6 @@ preferred-citation:
   journal: "Physical Review D"
   status: submitted
   year: 2026
-  identifiers:
-    - type: other
-      value: "arXiv:XXXX.XXXXX"
-      description: "arXiv preprint identifier — placeholder, to be filled in on posting."
 references:
   - type: article
     title: "The 20 GeV Galactic Halo Excess: Pixel-Level Confirmation and
