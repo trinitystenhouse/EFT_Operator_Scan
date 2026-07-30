@@ -64,7 +64,7 @@ OUTPUT_DIR = _HERE / "plots"
 # =============================================================================
 
 PANEL_CONFIGS = {
-    "dipole_magnetic":         {"title": "Dirac Magnetic Dipole\n(dim-5)",              "dm_type": "fermionic", "operator": "dipole_magnetic",  "majorana": False},
+    "dipole_magnetic":         {"title": "Magnetic Dipole (Dirac)\n(dim-5)",              "dm_type": "fermionic", "operator": "dipole_magnetic",  "majorana": False},
     "dipole_electric":         {"title": "Dirac Electric Dipole\n(dim-5)",              "dm_type": "fermionic", "operator": "dipole_electric",  "majorana": False},
     "charge_radius":           {"title": "Charge Radius\n(dim-6)",                     "dm_type": "fermionic", "operator": "charge_radius",    "majorana": False},
     "anapole":                 {"title": "Dirac Anapole\n(dim-6)",                     "dm_type": "fermionic", "operator": "anapole",          "majorana": False},
@@ -73,7 +73,8 @@ PANEL_CONFIGS = {
     "rayleigh_even_majorana":  {"title": "Rayleigh Even (Majorana)\n(dim-7)",          "dm_type": "fermionic", "operator": "rayleigh_even",    "majorana": True},
     "rayleigh_odd":            {"title": "Rayleigh Odd (Dirac)\n(dim-7)",              "dm_type": "fermionic", "operator": "rayleigh_odd",     "majorana": False},
     "rayleigh_full":           {"title": "Rayleigh Full (Dirac)\n(dim-7)",             "dm_type": "fermionic", "operator": "rayleigh_full",    "majorana": False},
-    "scalar_rayleigh":         {"title": "Scalar Rayleigh\n(dim-7)",                    "dm_type": "scalar",    "operator": "scalar_rayleigh",  "majorana": False},
+    "rayleigh_full_majorana":  {"title": "Rayleigh Full (Majorana)\n(dim-7)",          "dm_type": "fermionic", "operator": "rayleigh_full",    "majorana": True},
+    "scalar_rayleigh":         {"title": "Rayleigh (Scalar)\n(dim-6)",                    "dm_type": "scalar",    "operator": "scalar_rayleigh",  "majorana": False},
 }
 
 PAPER_SUMMARY_OPERATORS = ["dipole_magnetic", "anapole_majorana", "scalar_rayleigh"]

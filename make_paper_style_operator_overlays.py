@@ -208,6 +208,18 @@ PANEL_CONFIGS = {
         "operator": "rayleigh_odd",
         "majorana": True,
     },
+    # CP-even and CP-odd combined. Literature constraints are drawn from both
+    # sub-directories, following the Dirac rayleigh_full entry below. The legacy
+    # totani_file and naive_file have no full-Majorana counterparts; both are
+    # optional and the panel draws the data-driven boundaries regardless.
+    "rayleigh_full_majorana": {
+        "title": "Rayleigh Full (Majorana)",
+        "totani_file": "totani_fermionic_rayleigh_full_majorana_90cl.npz",
+        "constraint_subdir": ["rayleigh_even", "rayleigh_odd"],
+        "dm_type": "fermionic",
+        "operator": "rayleigh_full",
+        "majorana": True,
+    },
 
     # ── Dirac Rayleigh ───────────────────────────────────────────────────────
     "rayleigh_even": {
@@ -810,9 +822,9 @@ def plot_panel(
     x_min, x_max = 1e-10, 1e12
     y_min, y_max = 1e-6, 1e8
     totani_path = BOUNDARY_DIR / cfg["totani_file"]
-    # The legacy Totani tension-scan boundary is optional. For the dipole
-    # operators the legacy files were produced with the wrong (direct-
-    # detection) amplitudes and are no longer shipped; the panel draws the
+    # The legacy tension-scan boundary is optional. For the dipole operators the
+    # legacy files were produced with direct-detection rather than real-photon
+    # amplitudes and have been withdrawn; the panel draws the corrected
     # data-driven boundaries regardless.
     if totani_path.exists():
         totani = load_totani_boundary(totani_path)

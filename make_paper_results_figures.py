@@ -161,8 +161,7 @@ FIG2_CONTOUR_LABELS = {
 # CP-odd combined), so the Dirac case is resolved into its even/odd parts while
 # the Majorana and scalar cases are shown in full. The even/odd/full Majorana
 # boundary grids come from the same generation run, so the three are directly
-# comparable. Note Fig 3 and Fig 4 still show `rayleigh_even_majorana`: their
-# panel-config module carries no full-Majorana entry.
+# comparable. Figs 3 and 4 show the same full-Majorana operator.
 FIG2_OPERATORS = [
     "dipole_magnetic", "dipole_electric",
     "rayleigh_even", "rayleigh_odd",
@@ -184,7 +183,7 @@ FIG2_CDM_LABEL    = r"CDM ($m_\chi = 1$ MeV)"
 FIG3_PROFILES = ["pixelwise_global_rho2", "pixelwise_global_rho2.5"]
 # Anapole panel replaced by Majorana Rayleigh Even -- the anapole has
 # exactly zero tree-level real-photon cross section.
-FIG3_OPERATORS = ["dipole_magnetic", "rayleigh_even_majorana", "scalar_rayleigh"]
+FIG3_OPERATORS = ["dipole_magnetic", "rayleigh_full_majorana", "scalar_rayleigh"]
 FIG3_PROFILE_COLORS = {
     "pixelwise_global_rho2": COL_THIS_WORK,
     "pixelwise_global_rho2.5": plasma_color(0.4),
@@ -784,9 +783,9 @@ def f3_halo_constraints(out_dir: Path) -> Path:
     # _FIG4_TITLES in f4_multi_dataset_overlay() -- both figures share the
     # same three operators and should render identical panel titles.
     _FIG3_TITLES = {
-        "dipole_magnetic":       "Dirac Magnetic Dipole\n(dim-5)",
-        "rayleigh_even_majorana": "Majorana Rayleigh Even\n(dim-7)",
-        "scalar_rayleigh":       "Scalar Rayleigh\n(dim-7)",
+        "dipole_magnetic":        "Magnetic Dipole (Dirac)\n(dim-5)",
+        "rayleigh_full_majorana": "Rayleigh Full (Majorana)\n(dim-7)",
+        "scalar_rayleigh":        "Rayleigh (Scalar)\n(dim-6)",
     }
 
     all_handles = []
@@ -938,9 +937,9 @@ def f4_multi_dataset_overlay(out_dir: Path) -> Path:
     # _FIG3_TITLES below or the fallback silently renders the raw operator key
     # instead of a formatted title).
     _FIG4_TITLES = {
-        "dipole_magnetic":       "Dirac Magnetic Dipole\n(dim-5)",
-        "rayleigh_even_majorana": "Majorana Rayleigh Even\n(dim-7)",
-        "scalar_rayleigh":       "Scalar Rayleigh\n(dim-7)",
+        "dipole_magnetic":        "Magnetic Dipole (Dirac)\n(dim-5)",
+        "rayleigh_full_majorana": "Rayleigh Full (Majorana)\n(dim-7)",
+        "scalar_rayleigh":        "Rayleigh (Scalar)\n(dim-6)",
     }
 
     combined_handles: dict[str, Line2D] = {}
