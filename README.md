@@ -137,9 +137,12 @@ The halo optical-depth scan (`core/attenuation_eft.py`, driven by
 20 GeV halo excess directly from the pixel-level MCMC posterior of the
 companion paper, T. R. Stenhouse, C. Ghag, F. F. Deppisch, *"The 20 GeV
 Galactic Halo Excess: Pixel-Level Confirmation and Consistency with Sub-TeV
-WIMP Annihilation,"* arXiv:2607.08552 (submitted to Phys. Rev. D). Obtain it
-from that paper's own Zenodo archive: **[DOI: 10.5281/zenodo.XXXXXXX —
-placeholder, see companion paper for the definitive record]**.
+WIMP Annihilation,"* arXiv:2607.08552 (submitted to Phys. Rev. D). That
+analysis is released as `trinitystenhouse/Totani-Reanalysis` at
+**[doi:10.5281/zenodo.21280725](https://doi.org/10.5281/zenodo.21280725)**,
+which carries its analysis scripts and data-acquisition instructions; run its
+MCMC pipeline (or take the posterior files it ships) to obtain the
+`mcmc_results_k*.npz` this code reads.
 
 `core/attenuation_eft.py` loads these posteriors at import time and raises
 `FileNotFoundError` if they cannot be found — deliberately, so that a scan

@@ -99,9 +99,15 @@ paper and is released with the **companion** paper, not this repository:
 
 > T. R. Stenhouse, C. Ghag, F. F. Deppisch, "The 20 GeV Galactic Halo Excess:
 > Pixel-Level Confirmation and Consistency with Sub-TeV WIMP Annihilation,"
-> arXiv:2607.08552 — see that paper for its Zenodo DOI.
+> arXiv:2607.08552.
+>
+> Release: `trinitystenhouse/Totani-Reanalysis`,
+> [doi:10.5281/zenodo.21280725](https://doi.org/10.5281/zenodo.21280725)
+> (CC-BY-4.0). That archive holds the companion analysis scripts and its
+> data-acquisition instructions; run its MCMC pipeline, or take the posterior
+> files it ships, to get the `mcmc_results_k*.npz` needed below.
 
-Download and unpack it, then point the code at it. The simplest route is the
+Once you have the posterior, point this code at it. The simplest route is the
 environment variable, which overrides all path guessing:
 
 ```bash
