@@ -89,6 +89,10 @@ EFT_Operator_Scan/
 
 ## Reproducing the paper figures
 
+**See [REPRODUCE.md](REPRODUCE.md) for the full step-by-step guide**, covering
+the figures, the exclusion grids behind them, and the observed spectrum behind
+those, with the exact command for each. The short version follows.
+
 The digitised 90% CL exclusion grids in `constraint_boundaries/` and the
 observed halo spectrum in `data/fermi_halo_spectrum.txt` ship with this
 repository, so all five figures rebuild from a fresh clone with no external
