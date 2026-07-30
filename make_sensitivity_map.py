@@ -78,11 +78,11 @@ PANEL_CONFIGS = {
     "anapole_majorana":        {"title": "Anapole (Majorana)",                            "dm_type": "fermionic", "operator": "anapole",          "majorana": True},
     "rayleigh_even":           {"title": "Rayleigh Even (Dirac)",                         "dm_type": "fermionic", "operator": "rayleigh_even",    "majorana": False},
     "rayleigh_odd":            {"title": "Rayleigh Odd (Dirac)",                          "dm_type": "fermionic", "operator": "rayleigh_odd",     "majorana": False},
-    "rayleigh_full":           {"title": "Rayleigh (Dirac)",                              "dm_type": "fermionic", "operator": "rayleigh_full",    "majorana": False},
+    "rayleigh_full":           {"title": "Rayleigh Full (Dirac)",                              "dm_type": "fermionic", "operator": "rayleigh_full",    "majorana": False},
     "rayleigh_even_majorana":  {"title": "Rayleigh Even (Majorana)",                      "dm_type": "fermionic", "operator": "rayleigh_even",    "majorana": True},
     "rayleigh_odd_majorana":   {"title": "Rayleigh Odd (Majorana)",                       "dm_type": "fermionic", "operator": "rayleigh_odd",     "majorana": True},
-    "rayleigh_full_majorana":  {"title": "Rayleigh (Majorana)",                           "dm_type": "fermionic", "operator": "rayleigh_full",    "majorana": True},
-    "scalar_rayleigh":         {"title": "Scalar Rayleigh",                               "dm_type": "scalar",    "operator": "scalar_rayleigh",  "majorana": False},
+    "rayleigh_full_majorana":  {"title": "Rayleigh Full (Majorana)",                           "dm_type": "fermionic", "operator": "rayleigh_full",    "majorana": True},
+    "scalar_rayleigh":         {"title": "Rayleigh (Scalar)",                               "dm_type": "scalar",    "operator": "scalar_rayleigh",  "majorana": False},
 }
 
 DEFAULT_OPERATORS = [

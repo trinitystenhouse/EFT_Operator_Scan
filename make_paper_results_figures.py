@@ -157,22 +157,22 @@ FIG2_CONTOUR_LABELS = {
 # the text rather than plotted. Their former panels are replaced by the Dirac
 # Rayleigh CP-even/odd pair, so the figure still spans dim-5 (dipoles),
 # dim-7 fermionic (Rayleigh), and dim-6 scalar operators.
-# The Majorana Rayleigh panel shows `rayleigh_even_majorana` (matching Fig 3)
-# rather than `rayleigh_full_majorana`, so the two figures display the same
-# Majorana Rayleigh operator. Its in-panel title is overridden below to
-# "Majorana Rayleigh Even" via FIG2_TITLE_OVERRIDES (PANEL_CONFIGS calls it
-# "Rayleigh Even (Majorana)"); the pixelwise-halo npz for this operator exists.
+# The Majorana Rayleigh panel shows `rayleigh_full_majorana` (CP-even and
+# CP-odd combined), so the Dirac case is resolved into its even/odd parts while
+# the Majorana and scalar cases are shown in full. The even/odd/full Majorana
+# boundary grids come from the same generation run, so the three are directly
+# comparable. Note Fig 3 and Fig 4 still show `rayleigh_even_majorana`: their
+# panel-config module carries no full-Majorana entry.
 FIG2_OPERATORS = [
     "dipole_magnetic", "dipole_electric",
     "rayleigh_even", "rayleigh_odd",
-    "rayleigh_even_majorana", "scalar_rayleigh",
+    "rayleigh_full_majorana", "scalar_rayleigh",
 ]
 
-# Per-panel in-panel title overrides for Fig 2 (keeps the shared PANEL_CONFIGS
-# titles untouched). Fig 3 titles the same operator "Majorana Rayleigh Even".
-FIG2_TITLE_OVERRIDES = {
-    "rayleigh_even_majorana": "Majorana Rayleigh Even",
-}
+# Per-panel in-panel title overrides for Fig 2. Empty: every panel now takes
+# its title straight from PANEL_CONFIGS, which uses one "Operator (DM type)"
+# convention throughout.
+FIG2_TITLE_OVERRIDES = {}
 
 # Fig 2 cold-dark-matter reference: vertical dotted-yellow line at the CDM
 # mass floor m_chi = 1 MeV = 1e-3 GeV.
