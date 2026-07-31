@@ -184,9 +184,12 @@ def test_rayleigh_and_scalar_frozen():
     np.testing.assert_allclose(
         dsigma_dOmega_fermionic(m, THETAS, w, 0.0, 1.0, L, "rayleigh_odd"),
         (-t) ** 3 / (4.0 * L**6) * phase * GEV2_TO_FB, rtol=1e-12)
+    # Scalar Rayleigh: 16 c^2 t^2 / L^4 (Barducci et al. normalisation, no 1/4).
+    # Corrected from t^2/(4 L^4), which was 64x too small; see
+    # test_scalar_rayleigh_barducci_normalisation below.
     np.testing.assert_allclose(
         dsigma_dOmega_scalar(m, THETAS, w, 1.0, L),
-        t**2 / (4.0 * L**4) * phase * GEV2_TO_FB, rtol=1e-12)
+        16.0 * t**2 / L**4 * phase * GEV2_TO_FB, rtol=1e-12)
 
 
 # ---------------------------------------------------------------------------
@@ -267,3 +270,35 @@ def test_weiner_yavin_annihilation_anchor():
                     tot += abs(0.25 * X * bil) ** 2
     sv = (tot / 4.0) / (64.0 * np.pi * m**2)   # avg spins; 1/2 identical photons
     np.testing.assert_allclose(sv, m**4 / (4.0 * np.pi), rtol=1e-12)
+
+
+def test_scalar_rayleigh_barducci_normalisation():
+    """Real-scalar Rayleigh |M|^2 must equal 16 c_phi^2 t^2 / Lambda^4.
+
+    The operator is O = (c_phi/Lambda^2) phi^2 F_mu_nu F^mu_nu with NO factor
+    of 1/4, following Barducci et al. arXiv:2501.09073 (Eqs. 2.1/2.3/2.5), and
+    matching main.tex.  This differs from the fermionic Rayleigh branch, which
+    keeps the 1/4 of Weiner & Yavin so that Lambda matches their Lambda_R.
+
+    Guards against reverting to the appendix value c_phi^2 t^2 / (4 Lambda^4),
+    which is 64x too small and weakens the scalar Lambda limit by 64^(1/4).
+    """
+    from core.attenuation_eft import (
+        dsigma_dOmega_scalar, get_t_lab_DMrest, lab_dsigma_prefactor,
+        GEV2_TO_FB,
+    )
+    mchi, E_gamma, Lambda, c_phi = 1.0, 0.5, 10.0, 1.0
+    theta = np.linspace(0.15, np.pi - 0.15, 11)
+
+    t = get_t_lab_DMrest(mchi, E_gamma, theta)
+    phase = lab_dsigma_prefactor(mchi, E_gamma, theta)
+    expected = 16.0 * c_phi**2 * t**2 / Lambda**4 * phase * GEV2_TO_FB
+
+    got = dsigma_dOmega_scalar(mchi, theta, E_gamma, c_phi, Lambda)
+    assert np.allclose(got, expected, rtol=1e-12), "scalar Rayleigh normalisation changed"
+
+    # Quadratic in the Wilson coefficient, quartic in 1/Lambda (dimension 6).
+    got_2c = dsigma_dOmega_scalar(mchi, theta, E_gamma, 2.0 * c_phi, Lambda)
+    assert np.allclose(got_2c, 4.0 * got, rtol=1e-12)
+    got_2L = dsigma_dOmega_scalar(mchi, theta, E_gamma, c_phi, 2.0 * Lambda)
+    assert np.allclose(got_2L, got / 16.0, rtol=1e-12)

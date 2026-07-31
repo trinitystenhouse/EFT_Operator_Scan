@@ -363,13 +363,14 @@ def dsigma_dOmega_fermionic(mchi, theta, E_gamma, c_s, c_p, Lambda, operator="ra
         test_weiner_yavin_annihilation_anchor).  The coded even/odd/full
         branches are therefore exactly the initial-averaged |M|^2 in the WY
         convention -- main.tex Eq. (O_rayleigh) carries the 1/4.
-        Residual O(1) normalisation ambiguities, noted but not adopted here:
-        (a) if the doubled Majorana bilinear contraction <chi'|chibar Gamma chi
-        |chi> = 2 ubar Gamma u is used instead of WY's effective naive rule,
-        Majorana Rayleigh sigma rises x4 (Lambda limit x4^(1/6) ~ 1.26);
-        (b) the REAL-scalar phi^2 matrix element is unambiguously 2, so under
-        O = (c_phi/4 Lambda^2) phi^2 F F the coded scalar amp2 is x4 low
-        (Lambda limit would strengthen by 4^(1/4) ~ 1.41).
+      * The SCALAR Rayleigh branch does NOT carry the 1/4.  Its operator source
+        is Barducci et al., arXiv:2501.09073 (Eqs. 2.1/2.3/2.5), who write
+        L = C phi^2 F F with no 1/4; main.tex Eq. (O_scalar_rayleigh) matches.
+        Its combinatorics are given in dsigma_dOmega_scalar.
+        Residual O(1) normalisation ambiguity, noted but not adopted here: if
+        the doubled Majorana bilinear contraction <chi'|chibar Gamma chi|chi>
+        = 2 ubar Gamma u is used instead of WY's effective naive rule, the
+        Majorana Rayleigh sigma rises x4 (Lambda limit x4^(1/6) ~ 1.26).
     """
 
     t = get_t_lab_DMrest(mchi, E_gamma, theta)
@@ -462,8 +463,19 @@ def dsigma_dOmega_scalar(mchi, theta, E_gamma, c_phi, Lambda):
     """
     t = get_t_lab_DMrest(mchi, E_gamma, theta)
     phase = lab_dsigma_prefactor(mchi, E_gamma, theta)
-    
-    amp2 = c_phi**2 * t**2 / (4.0 * Lambda**4)
+
+    # Initial-photon-averaged |M|^2 for the real-scalar Rayleigh operator
+    #   O = (c_phi / Lambda^2) phi^2 F_mu_nu F^mu_nu,
+    # the normalisation of Barducci et al. (arXiv:2501.09073, Eqs. 2.1/2.3/2.5),
+    # which carries NO factor of 1/4 -- unlike the fermionic Rayleigh operator,
+    # where the 1/4 of Weiner & Yavin is retained so that Lambda matches their
+    # Lambda_R.  The combinatorial factors are: 2 from the phi^2 contraction,
+    # 2 from assigning the two photons to the two F's, and 2 from the
+    # F^(1).F^(2) contraction, giving M = (8 c_phi / Lambda^2) x
+    # [(k1.k2)(e1.e2) - (k1.e2)(k2.e1)].  Summing over final and averaging over
+    # the two initial photon polarisations with
+    # sum_pol |...|^2 = 2 (k1.k2)^2 and k1.k2 = -t/2 gives 16 c_phi^2 t^2 / Lambda^4.
+    amp2 = 16.0 * c_phi**2 * t**2 / Lambda**4
     val = amp2 * phase
     return val * GEV2_TO_FB
 
