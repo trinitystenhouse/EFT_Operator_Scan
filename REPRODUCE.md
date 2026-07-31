@@ -168,9 +168,20 @@ python constraint_generation/make_data_driven_scattering_limits.py \
 python constraint_generation/cmb_constraints.py
 ```
 
-Defaults matching the paper: `--delta-chi2 4.61` (90% CL, two parameters of
-interest), a 32 × 32 (m<sub>χ</sub>, Λ) grid over 10⁻⁶–10⁸ GeV and
-10⁻³–10⁷ GeV, 160 scattering-angle points, and emissivity-weighted
+**Pass the grid size explicitly.** The script defaults to `--nm 32 --nl 32`,
+but the published halo grids are **100 × 100**. On a 32-point Λ axis spanning
+ten decades each cell is a factor of 2.05, so a scan left on the defaults
+quantises the contour far more coarsely than the paper's. To reproduce the
+published ρ² grids, add:
+
+```
+--mchi-min 1e-6 --mchi-max 1e8 --nm 100 --lambda-min 1e-3 --lambda-max 1e7 --nl 100
+```
+
+Each stored `.npz` records the grid it was built on in `grid_mchi_GeV` and
+`grid_lambda_GeV`; check those before comparing a new scan against a committed
+one. Other defaults match the paper: `--delta-chi2 4.61` (90% CL, two
+parameters of interest), 160 scattering-angle points, and emissivity-weighted
 ROI averaging over a 60° half-angle. The scan uses the ROI-averaged linear
 column J<sub>ROI</sub>, not the order-of-magnitude baselines of the paper's
 Sec. II — see `core/attenuation_eft.py::roi_tau_prefactor`.
