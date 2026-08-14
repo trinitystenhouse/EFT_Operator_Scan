@@ -1,18 +1,13 @@
 """
 spectral_reshaping.py
 =====================
-Spectral reshaping pipeline for photon-DM scattering applied to the
-Totani halo excess.
+Spectral transport for photon-DM scattering, Sec. II D of the paper.
 
-The original calculation in this file is a halo-component transfer
-approximation: it applies scattering to the extracted NFW/PPPC halo component
-being compared against Totani's halo-template posterior. That is not a full
-sky-level forward model. Photon-DM scattering would act on every photon
-component that crosses the DM column, so this module now also provides
-PhotonTransferComponent and transfer_photon_components(...) as the scaffold for
-multi-component calculations.
+The calculation is a halo-component transfer: scattering is applied to the
+extracted NFW/PPPC halo component and compared against the halo-template
+posterior. It is not a full sky-level forward model.
 
-For a single source component, this module replaces the simple attenuation model
+This module replaces the simple attenuation model
     Phi_att = Phi_0 * exp(-tau)
 with the physically complete single-scatter redistribution:
     Phi_obs[i] = Phi_0[i]*exp(-tau[i]) + sum_j K[i,j]*tau[j]*Phi_0[j]*exp(-tau[j])
@@ -20,29 +15,17 @@ with the physically complete single-scatter redistribution:
 where K is the energy redistribution matrix built from the differential
 cross section and DM-frame kinematics.
 
-Design
-------
-The module is deliberately self-contained: it imports from the existing
-`attenuation_eft.py` (for optical depth infrastructure) and `cross_sections.py`
-(for dσ/dΩ), and from the new `kinematics.py`. It does NOT modify those files.
-
 Public API
 ----------
 ReshapingConfig                  : dataclass holding all run parameters
-build_dsigma_grid(...)           : construct (nE, nTheta) dσ/dΩ array [cm^2/sr]
-build_sigma_tot(...)             : compute σ_tot(E) [cm^2] from the grid
-build_kernel(...)                : assemble redistribution matrix K[i,j]
-compute_tau_spectrum(...)        : tau(E) from existing attenuation_eft machinery
-halo_component_transfer_spectrum(...): transferred single-component Phi_obs
-reshaped_halo_spectrum(...)      : backward-compatible alias for the above
-transfer_photon_components(...)  : sum several transferred photon components
-chi2_reshaping(...)              : chi^2 vs Totani data for a single (m_chi, Lambda)
+build_kernel(...)                : assemble redistribution matrix K[i,j], Eq. (II.13)
+compute_tau_spectrum(...)        : tau(E), Eq. (II.7)
+halo_component_transfer_spectrum(...): transferred single-component Phi_obs, Eq. (II.10)
+reshaped_halo_spectrum(...)      : alias for the above
+chi2_reshaping(...)              : chi^2 vs the measured spectrum at one (m_chi, Lambda)
 scan_reshaping_chi2(...)         : 2D grid scan over (m_chi, Lambda)
 save_reshaping_scan(...)         : save scan results to compressed .npz
 load_reshaping_scan(...)         : reload scan results
-
-The reshaping scan replaces `chi2_grid_scan_eft` in attenuation_eft.py when
-you want the physically complete treatment.
 """
 
 from __future__ import annotations
@@ -50,10 +33,10 @@ from __future__ import annotations
 import numpy as np
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Callable, Sequence
+from typing import Optional, Callable
 import os
 
-# Local imports from Totani_Scattering core modules
+# Local imports
 from core.cross_sections import (
     get_flat_weak_cross_sections,
     get_t_lab_DMrest,
@@ -66,16 +49,12 @@ from core.attenuation_eft import (
     dsigma_dOmega_fermionic,
     dsigma_dOmega_scalar,
     roi_tau_prefactor,
-    E_BINS_GEV,
-    PHI_TOTANI,
-    SIGMA_TOTANI,
     COS_THETA_MAX,
     FB_TO_CM2,
     OPERATOR_METADATA,
 )
+import core.attenuation_eft as _aeft
 from core.kinematics import (
-    build_redistribution_matrix,
-    roi_recovery_fraction,
     reshaped_spectrum,
     scattered_energy_grid,
     max_energy_loss_fraction,
@@ -90,19 +69,12 @@ _N_THETA_DEFAULT = 1000   # integration nodes in cos(theta); 1000 is sufficient
 
 
 def configure_totani_arrays(mcmc_dir) -> None:
-    """Reconfigure E_BINS_GEV / PHI_TOTANI / SIGMA_TOTANI for the chosen halo profile.
+    """Reconfigure the default halo spectrum for the chosen profile.
 
-    Updates both the attenuation_eft module globals and the local bindings in
-    this module (used by ReshapingConfig defaults and pppc_energy_flux_template).
     Call this once at the start of any pipeline script after selecting a halo
     profile, passing the corresponding entry from totani_data_loader._MCMC_DIRS.
     """
-    import core.attenuation_eft as _aeft
     _aeft.configure_totani_arrays(mcmc_dir)
-    global E_BINS_GEV, PHI_TOTANI, SIGMA_TOTANI
-    E_BINS_GEV = _aeft.E_BINS_GEV
-    PHI_TOTANI = _aeft.PHI_TOTANI
-    SIGMA_TOTANI = _aeft.SIGMA_TOTANI
 
 
 # ---------------------------------------------------------------------------
@@ -130,8 +102,8 @@ class ReshapingConfig:
     majorana : bool
         If True, enforce Majorana constraints on operator selection.
     y_eff : float
-        Effective Higgs-portal coupling in GeV, using the York/fig6 convention
-        (only used when operator='higgs_portal').
+        Effective Higgs-portal coupling [GeV] (only used when
+        operator='higgs_portal').
 
     ROI / integration parameters
     -----------------------------
@@ -145,26 +117,22 @@ class ReshapingConfig:
         in gravitational cross sections. Set to 1.0 for EFT operators
         (which are regular at theta=0). Defaults to COS_THETA_MAX from
         attenuation_eft.py.
-    roi_half_angle_deg : float
-        ROI half-opening angle for in-ROI recovery fraction weighting.
-        Set to None to use unity weights (conservative: all in-scattered
-        photons are recovered).
     apply_roi_weight : bool
-        Whether to apply the geometric ROI recovery fraction to the kernel.
+        Whether to apply the ROI recovery weight w(theta) to the kernel.
 
     Energy axis
     -----------
     E_bins : array
-        Photon energy bin centres [GeV]. Defaults to Totani's 13 bins.
+        Photon energy bin centres [GeV]. Defaults to the halo posterior's
+        13 native bins.
     phi_0 : array
-        Intrinsic source spectrum to reshape. Defaults to PHI_TOTANI only as
-        a backward-compatible placeholder; for the physical annihilation
-        analysis use a PPPC template from pppc_energy_flux_template.
+        Intrinsic source spectrum to reshape. Defaults to the halo posterior;
+        for the two-component annihilation variants pass a PPPC template from
+        pppc_energy_flux_template.
     phi_data : array
-        Observed target spectrum. Defaults to PHI_TOTANI (Totani Fig. 8
-        NFW-rho^2 halo component read-off).
+        Observed target spectrum. Defaults to the halo posterior.
     phi_err : array
-        1-sigma errors on phi_data. Defaults to SIGMA_TOTANI.
+        1-sigma errors on phi_data. Defaults to the halo posterior's.
     fit_normalization : bool
         If True, chi-squared calculations fit the overall intrinsic template
         normalization analytically. This is the quantity that maps onto the
@@ -179,7 +147,7 @@ class ReshapingConfig:
     """
 
     # Physical
-    m_chi: float = 600.0          # GeV (Totani preferred range midpoint)
+    m_chi: float = 600.0          # GeV
     Lambda: float = 1e3           # GeV
     dm_type: str = "fermionic"
     operator: str = "dipole_magnetic"
@@ -187,7 +155,7 @@ class ReshapingConfig:
     c_p: float = 0.0
     c_phi: float = 1.0
     majorana: bool = False
-    y_eff: float = 1.0            # Higgs portal only, York/fig6 convention [GeV]
+    y_eff: float = 1.0            # Higgs portal only [GeV]
 
     # ROI
     l_grid: np.ndarray = field(
@@ -202,21 +170,49 @@ class ReshapingConfig:
     # Optional scalar column-density prefactor K [GeV/cm^2]. When set, the ROI
     # integration in ``roi_tau_prefactor`` is bypassed and ``tau = K * sigma / m_chi``
     # is used directly. Populate this for datasets with a well-defined single
-    # J-factor (dSphs from the McDaniel 2024 catalog; the cosmological IGRB
-    # baseline). Leave as ``None`` for the halo ROI-average path.
+    # J-factor, i.e. the cosmological IGRB baseline. Leave as ``None`` for the
+    # halo ROI-average path.
     tau_prefactor_override: Optional[float] = None
 
     # Integration
+    #
+    # sigma_tot is evaluated in closed form: F_i(u_min) - F_i(u_max) from
+    # Eqs. (IV.12)-(IV.16) of the paper, with no angular grid anywhere. Verified
+    # against the amplitude by symbolic differentiation and against resolved
+    # quadrature to 1e-6 from m_chi = 1e-5 to 1e9 GeV
+    # (tests/test_sigma_closed_form.py).
+
+    # Fractional energy loss defining bin migration (native grid ratio 1.69,
+    # half-width sqrt(1.69) -> f = 0.231). Eq. (IV.11).
+    f_bin: float = 0.231
+    # 1 - cos(theta_ROI) for the hard-cut removal model. None -> energy
+    # migration only, which is the roi_recovery_model="unity" (IGRB) case; the
+    # halo uses the computed w(theta) instead (see core/roi_recovery.py).
+    x_roi: Optional[float] = None
+
     n_theta: int = _N_THETA_DEFAULT
     cos_theta_max: float = COS_THETA_MAX
-    roi_half_angle_deg: Optional[float] = 60.0
     apply_roi_weight: bool = True
 
+    # ROI recovery weight applied inside the kernel.
+    #   "template" : roi_recovery.halo_recovery_fraction, computed from the
+    #                rho^2 template over the actual box ROI. Not a cone at any
+    #                radius: 0.895 at 5 deg, 0.403 at 60 deg, 0.019 at 120 deg.
+    #                This is the halo arm.
+    #   "unity"    : w == 1 identically -- the IGRB arm. An isotropic source
+    #                seen against a scatterer of the cosmological mean density
+    #                has no boundary for a photon to be deflected across: every
+    #                photon scattered out of a line of sight is replaced by a
+    #                statistically identical one scattered in. Angular escape
+    #                removes nothing, so ENERGY MIGRATION is the only channel.
+    #                See roi_recovery.igrb_recovery_fraction for the derivation.
+    roi_recovery_model: str = "template"
+
     # Energy / spectrum
-    E_bins: np.ndarray = field(default_factory=lambda: E_BINS_GEV.copy())
-    phi_0: np.ndarray = field(default_factory=lambda: PHI_TOTANI.copy())
-    phi_data: np.ndarray = field(default_factory=lambda: PHI_TOTANI.copy())
-    phi_err: np.ndarray = field(default_factory=lambda: SIGMA_TOTANI.copy())
+    E_bins: np.ndarray = field(default_factory=lambda: _aeft.E_BINS_GEV.copy())
+    phi_0: np.ndarray = field(default_factory=lambda: _aeft.PHI_TOTANI.copy())
+    phi_data: np.ndarray = field(default_factory=lambda: _aeft.PHI_TOTANI.copy())
+    phi_err: np.ndarray = field(default_factory=lambda: _aeft.SIGMA_TOTANI.copy())
     fit_normalization: bool = True
     max_tau_single_scatter: Optional[float] = 0.3
     require_lambda_gt_mdm: bool = True
@@ -243,79 +239,13 @@ class ReshapingConfig:
             raise ValueError(
                 f"phi_err ({self.phi_err.shape}) must match phi_data ({self.phi_data.shape})."
             )
-
-
-@dataclass
-class PhotonTransferComponent:
-    """
-    One photon source population to propagate through photon-DM scattering.
-
-    This is the building block for calculations beyond the current
-    halo-component approximation. Each component carries its own intrinsic
-    spectrum and either an explicit tau(E) or its own line-of-sight grids for
-    the optical-depth average. If tau is provided it is used directly. If
-    l_grid/b_grid are omitted, the parent ReshapingConfig grids are used.
-
-    Examples of physically distinct components are:
-      - NFW annihilation halo photons
-      - isotropic/extragalactic photons
-      - Galactic diffuse foreground photons
-      - a phenomenological high-energy background bath
-
-    The geometry fields are intentionally explicit because applying the NFW
-    halo optical-depth average to every sky component would hide the assumption
-    that motivated this helper.
-    """
-
-    name: str
-    phi_0: np.ndarray
-    normalization: float = 1.0
-    tau: Optional[np.ndarray] = None
-    l_grid: Optional[np.ndarray] = None
-    b_grid: Optional[np.ndarray] = None
-    note: str = ""
-
-
-_PPPC_CHANNEL_ALIASES = {
-    "bb": "b",
-    "bbar": "b",
-    "b b": "b",
-    "b_bbar": "b",
-    "ww": "W",
-    "w+w-": "W",
-    "w+ w-": "W",
-    "w": "W",
-    "tautau": r"\[Tau]",
-    "tau+tau-": r"\[Tau]",
-    "tau": r"\[Tau]",
-    "mumu": r"\[Mu]",
-    "mu": r"\[Mu]",
-    "ee": "e",
-    "e": "e",
-    "zz": "Z",
-    "z": "Z",
-    "gg": "g",
-    "g": "g",
-    "gammagamma": r"\[Gamma]",
-    "gamma": r"\[Gamma]",
-    "hh": "h",
-    "h": "h",
-    "tt": "t",
-    "t": "t",
-    "cc": "c",
-    "c": "c",
-    "qq": "q",
-    "q": "q",
-}
-
-
 def default_pppc_gamma_table_path() -> Path:
     """
     Locate the PPPC Release 6.0 gamma-ray production table if it is available.
 
     Preferred locations:
       1. $PPPC4DMID_GAMMAS
-      2. Totani_Scattering/data/AtProduction_gammas.dat
+      2. <repo>/data/AtProduction_gammas.dat
       3. $GAMMAPY_DATA/dark_matter_spectra/PPPC4DMID/AtProduction_gammas.dat
     """
     candidates = []
@@ -372,7 +302,7 @@ def pppc_dnde_from_table(
             f"PPPC gamma table not found: {path}\n"
             "Download the PPPC4DMID Release 6.0 numerical gamma table "
             "'AtProduction_gammas.dat' from https://www.marcocirelli.net/PPPC4DMID.html "
-            "and place it at Totani_Scattering/data/AtProduction_gammas.dat, or set "
+            "and place it at <repo>/data/AtProduction_gammas.dat, or set "
             "PPPC4DMID_GAMMAS=/path/to/AtProduction_gammas.dat."
         )
 
@@ -448,9 +378,9 @@ def pppc_energy_flux_template(
 
     template = E_bins**2 * dnde
     if normalise:
-        positive_data = PHI_TOTANI > 0.0
+        positive_data = _aeft.PHI_TOTANI > 0.0
         template_peak = float(np.nanmax(template[positive_data])) if np.any(positive_data) else 0.0
-        data_peak = float(np.nanmax(PHI_TOTANI[positive_data])) if np.any(positive_data) else 1.0
+        data_peak = float(np.nanmax(_aeft.PHI_TOTANI[positive_data])) if np.any(positive_data) else 1.0
         if template_peak > 0.0 and np.isfinite(template_peak):
             template = template * (data_peak / template_peak)
 
@@ -494,174 +424,131 @@ def smooth_nfw_sigma_v_from_norm(
 
 
 # ---------------------------------------------------------------------------
-# Differential cross section grid
-# ---------------------------------------------------------------------------
-
-def build_dsigma_grid(
-    cfg: ReshapingConfig,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Build the (nE, nTheta) differential cross section array.
-
-    Parameters
-    ----------
-    cfg : ReshapingConfig
-
-    Returns
-    -------
-    cos_theta_vals : (nTh,)   integration nodes
-    dsig : (nE, nTh)          dσ/dΩ [cm^2 / sr]
-    sigma_tot : (nE,)         total cross section [cm^2], integrated from dsig
-    """
-    nE = len(cfg.E_bins)
-    cos_theta_vals = np.linspace(-1.0, cfg.cos_theta_max, cfg.n_theta)
-    theta_vals = np.arccos(cos_theta_vals)   # (nTh,)
-
-    # Broadcast: shape (nE, nTh)
-    E2 = cfg.E_bins[:, None]
-    th2 = theta_vals[None, :]
-
-    if cfg.operator == "higgs_portal":
-        # Use the UV-complete Higgs-portal amplitude from cross_sections.py
-        dsig_raw = get_flat_weak_cross_sections(
-            cfg.m_chi, cfg.y_eff, th2, E2,
-            frame="lab", in_SI=False, which="full",
-        )  # fb/sr
-        dsig = np.where(np.isfinite(dsig_raw) & (dsig_raw >= 0.0),
-                        dsig_raw * FB_TO_CM2, 0.0)
-
-    elif cfg.dm_type == "fermionic":
-        dsig_raw = dsigma_dOmega_fermionic(
-            cfg.m_chi, th2, E2,
-            cfg.c_s, cfg.c_p, cfg.Lambda,
-            operator=cfg.operator,
-            majorana=cfg.majorana,
-        )  # fb/sr
-        dsig = np.where(np.isfinite(dsig_raw) & (dsig_raw >= 0.0),
-                        dsig_raw * FB_TO_CM2, 0.0)
-
-    elif cfg.dm_type == "scalar":
-        dsig_raw = dsigma_dOmega_scalar(
-            cfg.m_chi, th2, E2,
-            cfg.c_phi, cfg.Lambda,
-        )  # fb/sr
-        dsig = np.where(np.isfinite(dsig_raw) & (dsig_raw >= 0.0),
-                        dsig_raw * FB_TO_CM2, 0.0)
-
-    else:
-        raise ValueError(f"Unknown dm_type: {cfg.dm_type!r}")
-
-    # Integrate for σ_tot(E)
-    sigma_tot = 2.0 * np.pi * np.trapezoid(dsig, cos_theta_vals, axis=1)   # (nE,)
-
-    return cos_theta_vals, dsig, sigma_tot
-
-
-# ---------------------------------------------------------------------------
 # Optical depth spectrum
 # ---------------------------------------------------------------------------
 
-def compute_tau_spectrum(cfg: ReshapingConfig) -> np.ndarray:
+def compute_tau_spectrum(cfg: ReshapingConfig, *, arm: str = "attenuation") -> np.ndarray:
+    """Optical depth for the requested ARM.  See _tau_closed_form for why the
+    two arms must not share a definition."""
+    return _tau_closed_form(cfg, arm=arm)
+
+
+def _tau_closed_form(cfg: ReshapingConfig, *, arm: str) -> np.ndarray:
+    """tau(E) from the closed-form cross sections, with ARM-DEPENDENT sigma.
+
+    attenuation : sigma = REMOVAL cross section, integrated from
+                  u_min = min(f/(1-f), r*x_roi) to u_max = 2r. A photon counts
+                  as removed when it leaves its energy bin OR leaves the ROI.
+
+    reshaping   : sigma = FULL ELASTIC cross section, u_min = 0. The kernel K
+                  does the removal bookkeeping in this arm -- it returns a
+                  near-forward-scattered photon to its own energy bin and
+                  applies the ROI recovery weight. Using the removal sigma here
+                  would count the same loss twice, once in tau and again in K.
+
+    This is a real physical distinction between the arms, not a convention, so
+    it is exposed through the `arm` argument rather than silently folded into
+    sigma_tot.
     """
-    Emissivity-weighted mean optical depth tau(E) for the given config.
+    from core.sigma_closed_form import sigma_removal_cm2
 
-    Delegates to `compute_tau_bar_spectrum_eft` from attenuation_eft.py,
-    which uses the cached ROI prefactor K = sum(J1*J2)/sum(J2) and:
+    E_bins = np.asarray(cfg.E_bins, dtype=float)
+    if arm not in ("attenuation", "reshaping"):
+        raise ValueError(f"arm must be 'attenuation' or 'reshaping', got {arm!r}")
 
-        tau_bar(E) = K * sigma_tot(E) / m_chi
-
-    For the Higgs-portal operator, sigma_tot is computed from the
-    UV-complete amplitude rather than the EFT expressions.
-
-    Returns
-    -------
-    tau : (nE,)   dimensionless, non-negative
-    """
-    E_bins = cfg.E_bins
-
-    if cfg.operator == "higgs_portal":
-        # Compute sigma_tot from the Higgs-portal dσ/dΩ
-        cos_theta_vals = np.linspace(-1.0, cfg.cos_theta_max, cfg.n_theta)
-        theta_vals = np.arccos(cos_theta_vals)
-        E2 = E_bins[:, None]
-        th2 = theta_vals[None, :]
-        dsig = get_flat_weak_cross_sections(
-            cfg.m_chi, cfg.y_eff, th2, E2,
-            frame="lab", in_SI=False, which="full",
-        ) * FB_TO_CM2
-        dsig = np.where(np.isfinite(dsig) & (dsig >= 0.0), dsig, 0.0)
-        sigma_tot = 2.0 * np.pi * np.trapezoid(dsig, cos_theta_vals, axis=1)
-
-        if cfg.tau_prefactor_override is not None:
-            K = float(cfg.tau_prefactor_override)
-        else:
-            K = roi_tau_prefactor(cfg.l_grid, cfg.b_grid)
-        tau = (K / cfg.m_chi) * sigma_tot
-
+    kwargs = dict(c_s=cfg.c_s, c_p=cfg.c_p, c_phi=cfg.c_phi, f_bin=cfg.f_bin)
+    if arm == "reshaping":
+        # full elastic: integrate the whole angular range
+        sigma = sigma_removal_cm2(cfg.operator, cfg.m_chi, E_bins, cfg.Lambda,
+                                  u_min=np.zeros_like(E_bins), **kwargs)
     else:
-        tau = compute_tau_bar_spectrum_eft(
-            E_bins,
-            cfg.m_chi,
-            cfg.Lambda,
-            cfg.l_grid,
-            cfg.b_grid,
-            dm_type=cfg.dm_type,
-            operator=cfg.operator,
-            c_s=cfg.c_s,
-            c_p=cfg.c_p,
-            c_phi=cfg.c_phi,
-            majorana=cfg.majorana,
-            K_override=cfg.tau_prefactor_override,
-        )
+        x_roi = cfg.x_roi
+        if cfg.roi_recovery_model == "template":
+            # Energy migration (exact step at the bin edge) PLUS angular escape
+            # weighted by the computed w(theta). A hard theta_ROI cut cannot
+            # represent the latter: the template w is already 0.90 by 5 deg.
+            from core.sigma_closed_form import sigma_removal_smooth_w_cm2
+            from core.roi_recovery import halo_recovery_fraction
+            sigma = sigma_removal_smooth_w_cm2(
+                cfg.operator, cfg.m_chi, E_bins, cfg.Lambda,
+                halo_recovery_fraction, **kwargs)
+        else:
+            # Per bin, a closed removal channel (u_min >= u_max, i.e. even a
+            # full backscatter shifts the photon by less than the removal
+            # criterion) means sigma = 0. That is the physical answer for that
+            # bin, not a configuration error. With x_roi=None this is energy
+            # migration alone, i.e. w == 1 -- the correct IGRB treatment, where
+            # an isotropic source against an isotropic scatterer has no
+            # boundary to be deflected across.
+            sigma = sigma_removal_cm2(cfg.operator, cfg.m_chi, E_bins,
+                                      cfg.Lambda, x_roi=x_roi,
+                                      closed_channel="zero", **kwargs)
 
-    return np.asarray(tau, dtype=float)
+    if cfg.tau_prefactor_override is not None:
+        K = float(cfg.tau_prefactor_override)
+    else:
+        K = roi_tau_prefactor(cfg.l_grid, cfg.b_grid)
+    return np.asarray((K / cfg.m_chi) * sigma, dtype=float)
 
 
 # ---------------------------------------------------------------------------
 # Redistribution kernel
 # ---------------------------------------------------------------------------
 
-def build_kernel(
-    cfg: ReshapingConfig,
-    cos_theta_vals: np.ndarray | None = None,
-    dsig: np.ndarray | None = None,
-    sigma_tot: np.ndarray | None = None,
-) -> np.ndarray:
+def _dsigma_callable(cfg):
+    """dsigma/dOmega [cm^2/sr] as a function of (E, theta), for this config."""
+    def f(E, theta):
+        if cfg.operator == "higgs_portal":
+            d = get_flat_weak_cross_sections(
+                cfg.m_chi, cfg.y_eff, theta, E,
+                frame="lab", in_SI=False, which="full",
+            )
+        elif cfg.dm_type == "fermionic":
+            d = dsigma_dOmega_fermionic(
+                cfg.m_chi, theta, E, cfg.c_s, cfg.c_p, cfg.Lambda,
+                operator=cfg.operator, majorana=cfg.majorana,
+            )
+        elif cfg.dm_type == "scalar":
+            d = dsigma_dOmega_scalar(cfg.m_chi, theta, E, cfg.c_phi, cfg.Lambda)
+        else:
+            raise ValueError(f"Unknown dm_type: {cfg.dm_type!r}")
+        return np.asarray(d, dtype=float) * FB_TO_CM2
+    return f
+
+
+def _recovery_callable(cfg):
+    """w(theta_deg) for the kernel numerator, or None for unity."""
+    if not cfg.apply_roi_weight:
+        return None
+    model = cfg.roi_recovery_model
+    if model == "unity":
+        return None                      # unity weights; see ReshapingConfig
+    if model == "template":
+        from core.roi_recovery import halo_recovery_fraction
+        return halo_recovery_fraction
+    raise ValueError(
+        f"roi_recovery_model must be 'template' or 'unity', got {model!r}")
+
+
+def build_kernel(cfg: ReshapingConfig) -> np.ndarray:
     """
     Build the (nE, nE) redistribution kernel K for this config.
 
-    Parameters
-    ----------
-    cfg : ReshapingConfig
-    cos_theta_vals : (nTh,) optional
-        Pre-computed integration nodes. If None, calls build_dsigma_grid.
-    dsig : (nE, nTh) optional
-        Pre-computed dσ/dΩ [cm^2/sr]. If None, calls build_dsigma_grid.
-    sigma_tot : (nE,) optional
-        Pre-computed total cross section [cm^2]. If None, computed internally.
+    The kernel is evaluated on analytic per-bin u-intervals with log-u
+    segmented Gauss-Legendre quadrature: column-sum closure then holds to
+    machine precision and sigma_tot matches the closed forms of
+    core/sigma_closed_form.py to 1.8e-10 across m_chi = 1e-5 to 1e8 GeV
+    (tests/test_kernel_normalisation.py).
 
     Returns
     -------
-    K : (nE, nE)   redistribution matrix (upper-triangular, column-sum ≤ 1)
+    K : (nE, nE)   redistribution matrix (upper-triangular, column-sum <= 1)
     """
-    if cos_theta_vals is None or dsig is None:
-        cos_theta_vals, dsig, sigma_tot = build_dsigma_grid(cfg)
-
-    # ROI recovery fraction (optional)
-    if cfg.apply_roi_weight and cfg.roi_half_angle_deg is not None:
-        w_roi = roi_recovery_fraction(cos_theta_vals, cfg.roi_half_angle_deg)
-    else:
-        w_roi = None
-
-    K = build_redistribution_matrix(
-        cfg.E_bins,
-        cos_theta_vals,
-        dsig,
-        cfg.m_chi,
-        sigma_tot=sigma_tot,
-        in_roi_weight=w_roi,
+    from core.kinematics import build_redistribution_matrix_exact
+    return build_redistribution_matrix_exact(
+        cfg.E_bins, cfg.m_chi, _dsigma_callable(cfg),
+        w_fn=_recovery_callable(cfg),
     )
-    return K
 
 
 def energy_flux_transfer_matrix(
@@ -707,187 +594,6 @@ def apply_single_scatter_transfer(
     return phi_survival + phi_inscatter, phi_survival, phi_inscatter
 
 
-def apply_extended_source_transfer(
-    phi_source_ext: np.ndarray,
-    tau_ext: np.ndarray,
-    K_photon_ext: np.ndarray,
-    E_source: np.ndarray,
-    E_obs: np.ndarray,
-    *,
-    high_energy_min: float | None = None,
-) -> dict[str, np.ndarray | float]:
-    """
-    Transfer on an extended source-energy grid and sample onto observed bins.
-
-    This keeps the single-scatter algebra on one fine log grid, so the result
-    does not depend on summing coarse observed-bin centres as if they were
-    integration nodes. High-energy in-scatter diagnostics are computed by
-    zeroing source-grid bins above ``high_energy_min`` before interpolating
-    the in-scatter spectrum back to the observed grid.
-    """
-    E_source = np.asarray(E_source, dtype=float)
-    E_obs = np.asarray(E_obs, dtype=float)
-    phi_source_ext = np.asarray(phi_source_ext, dtype=float)
-    tau_ext = np.asarray(tau_ext, dtype=float)
-
-    phi_ext, survival_ext, inscatter_ext = apply_single_scatter_transfer(
-        phi_source_ext,
-        tau_ext,
-        K_photon_ext,
-        E_source,
-    )
-
-    def _interp(values: np.ndarray) -> np.ndarray:
-        values = np.asarray(values, dtype=float)
-        return np.interp(E_obs, E_source, values, left=0.0, right=0.0)
-
-    high_inscatter_ext = np.zeros_like(inscatter_ext)
-    if high_energy_min is not None:
-        high_mask = E_source > float(high_energy_min)
-        if np.any(high_mask):
-            K_energy_ext = energy_flux_transfer_matrix(K_photon_ext, E_source)
-            source_scattered = tau_ext * phi_source_ext * np.exp(-tau_ext)
-            source_scattered = np.where(high_mask, source_scattered, 0.0)
-            high_inscatter_ext = K_energy_ext @ source_scattered
-
-    obs_inscatter = _interp(inscatter_ext)
-    obs_high = _interp(high_inscatter_ext)
-    obs_phi = _interp(phi_ext)
-    high_fraction = np.divide(
-        obs_high,
-        obs_inscatter,
-        out=np.zeros_like(obs_high),
-        where=np.isfinite(obs_inscatter) & (obs_inscatter > 0.0),
-    )
-
-    return {
-        "phi_obs": obs_phi,
-        "phi_survival": _interp(survival_ext),
-        "phi_inscatter": obs_inscatter,
-        "phi_high_inscatter": obs_high,
-        "high_inscatter_fraction": high_fraction,
-        "phi_ext": phi_ext,
-        "phi_survival_ext": survival_ext,
-        "phi_inscatter_ext": inscatter_ext,
-        "phi_high_inscatter_ext": high_inscatter_ext,
-    }
-
-
-def _config_for_component(
-    base_cfg: ReshapingConfig,
-    component: PhotonTransferComponent,
-) -> ReshapingConfig:
-    """Return a copy of base_cfg with component spectrum/geometry inserted."""
-    l_grid = base_cfg.l_grid if component.l_grid is None else component.l_grid
-    b_grid = base_cfg.b_grid if component.b_grid is None else component.b_grid
-    return ReshapingConfig(
-        m_chi=base_cfg.m_chi,
-        Lambda=base_cfg.Lambda,
-        dm_type=base_cfg.dm_type,
-        operator=base_cfg.operator,
-        c_s=base_cfg.c_s,
-        c_p=base_cfg.c_p,
-        c_phi=base_cfg.c_phi,
-        majorana=base_cfg.majorana,
-        y_eff=base_cfg.y_eff,
-        l_grid=np.asarray(l_grid, dtype=float),
-        b_grid=np.asarray(b_grid, dtype=float),
-        n_theta=base_cfg.n_theta,
-        cos_theta_max=base_cfg.cos_theta_max,
-        roi_half_angle_deg=base_cfg.roi_half_angle_deg,
-        apply_roi_weight=base_cfg.apply_roi_weight,
-        E_bins=base_cfg.E_bins,
-        phi_0=np.asarray(component.phi_0, dtype=float),
-        phi_data=base_cfg.phi_data,
-        phi_err=base_cfg.phi_err,
-        fit_normalization=base_cfg.fit_normalization,
-        max_tau_single_scatter=base_cfg.max_tau_single_scatter,
-        require_lambda_gt_mdm=base_cfg.require_lambda_gt_mdm,
-    )
-
-
-def transfer_photon_components(
-    base_cfg: ReshapingConfig,
-    components: Sequence[PhotonTransferComponent],
-    *,
-    return_components: bool = False,
-) -> np.ndarray | dict:
-    """
-    Propagate and sum multiple photon source components.
-
-    This is the forward-model scaffold for the more physical calculation where
-    photon-DM scattering acts on more than the extracted NFW halo component.
-    Each component gets the same particle-physics cross section and energy
-    redistribution kernel, but it may use a different optical-depth geometry
-    through its own l_grid/b_grid.
-
-    The returned total is:
-
-        Phi_total = sum_a norm_a * Transfer_a[Phi_0,a]
-
-    Notes
-    -----
-    This function does not by itself load foreground spectra or refit a
-    counts-level likelihood. It provides the transfer algebra needed once those
-    spectra/geometries are supplied.
-    """
-    if not components:
-        raise ValueError("components must contain at least one PhotonTransferComponent")
-
-    cos_theta_vals, dsig, sigma_tot = build_dsigma_grid(base_cfg)
-    K = build_kernel(base_cfg, cos_theta_vals, dsig, sigma_tot)
-
-    total = np.zeros_like(base_cfg.E_bins, dtype=float)
-    pieces = []
-    tau_values = []
-
-    for component in components:
-        comp_cfg = _config_for_component(base_cfg, component)
-        if component.tau is None:
-            tau = compute_tau_spectrum(comp_cfg)
-        else:
-            tau = np.asarray(component.tau, dtype=float)
-            if tau.shape != comp_cfg.E_bins.shape:
-                raise ValueError(
-                    f"tau for component {component.name!r} has shape {tau.shape}; "
-                    f"expected {comp_cfg.E_bins.shape}"
-                )
-        phi_obs, phi_survival, phi_inscatter = apply_single_scatter_transfer(
-            comp_cfg.phi_0,
-            tau,
-            K,
-            comp_cfg.E_bins,
-        )
-        scale = float(component.normalization)
-        total += scale * phi_obs
-        tau_values.append(tau)
-        pieces.append({
-            "name": component.name,
-            "normalization": scale,
-            "note": component.note,
-            "phi_0": comp_cfg.phi_0,
-            "phi_obs": scale * phi_obs,
-            "phi_survival": scale * phi_survival,
-            "phi_inscatter": scale * phi_inscatter,
-            "tau": tau,
-            "l_grid": comp_cfg.l_grid,
-            "b_grid": comp_cfg.b_grid,
-        })
-
-    if return_components:
-        return {
-            "phi_obs": total,
-            "components": pieces,
-            "tau_components": np.asarray(tau_values, dtype=float),
-            "K": K,
-            "K_energy_flux": energy_flux_transfer_matrix(K, base_cfg.E_bins),
-            "sigma_tot": sigma_tot,
-            "cos_theta_vals": cos_theta_vals,
-            "dsig": dsig,
-        }
-    return total
-
-
 # ---------------------------------------------------------------------------
 # Full reshaping calculation
 # ---------------------------------------------------------------------------
@@ -903,14 +609,12 @@ def halo_component_transfer_spectrum(
     This applies the scattering transfer only to cfg.phi_0 and compares the
     result to cfg.phi_data. In the Totani scripts cfg.phi_data is usually the
     MCMC-extracted NFW halo template coefficient spectrum, not the total LAT
-    sky intensity. Use transfer_photon_components(...) for a multi-component
-    forward model.
+    sky intensity.
 
     Steps:
-      1. Build dσ/dΩ grid and sigma_tot(E).
-      2. Compute tau(E) via emissivity-weighted ROI average.
-      3. Build redistribution kernel K[i,j].
-      4. Apply: Phi_obs = survival + in-scatter.
+      1. Compute tau(E) via the emissivity-weighted ROI average, Eq. (II.7).
+      2. Build the redistribution kernel K[i,j], Eq. (II.13).
+      3. Apply: Phi_obs = survival + in-scatter, Eq. (II.10).
 
     Parameters
     ----------
@@ -923,9 +627,8 @@ def halo_component_transfer_spectrum(
     -------
     phi_obs : (nE,) or dict if return_components=True
     """
-    cos_theta_vals, dsig, sigma_tot = build_dsigma_grid(cfg)
-    tau = compute_tau_spectrum(cfg)
-    K = build_kernel(cfg, cos_theta_vals, dsig, sigma_tot)
+    tau = compute_tau_spectrum(cfg, arm="reshaping")
+    K = build_kernel(cfg)
 
     phi_obs, phi_survival, phi_inscatter = apply_single_scatter_transfer(
         cfg.phi_0,
@@ -942,9 +645,6 @@ def halo_component_transfer_spectrum(
             "tau": tau,
             "K": K,
             "K_energy_flux": energy_flux_transfer_matrix(K, cfg.E_bins),
-            "sigma_tot": sigma_tot,
-            "cos_theta_vals": cos_theta_vals,
-            "dsig": dsig,
         }
     return phi_obs
 
@@ -1036,7 +736,14 @@ def chi2_reshaping(
     mask = cfg.phi_data > 0.0 if positive_bins_only else np.ones(len(cfg.E_bins), dtype=bool)
     norm = best_fit_normalization(phi_obs, cfg.phi_data, cfg.phi_err, mask) if cfg.fit_normalization else 1.0
     if not np.isfinite(norm):
-        return np.nan
+        # The analytic profile is degenerate: the attenuated model has
+        # underflowed, so no A fits the data. That is not "no information" --
+        # it is the most strongly excluded corner of the plane. Falling back to
+        # A=1 keeps chi2 large and FINITE there. Returning NaN instead used to
+        # punch a hole through every downstream consumer: the sensitivity-map
+        # heatmap rendered it as blank (masked) rather than saturated, and it
+        # poisoned the contour extractor's grid minimum.
+        norm = 1.0
     residuals = (norm * phi_obs[mask] - cfg.phi_data[mask]) / cfg.phi_err[mask]
     return float(np.sum(residuals**2))
 
@@ -1047,14 +754,21 @@ def chi2_attenuation_only(cfg: ReshapingConfig) -> float:
 
     Useful for quantifying how much the redistribution term changes the fit.
     """
-    tau = compute_tau_spectrum(cfg)
+    tau = compute_tau_spectrum(cfg, arm="attenuation")
     if not _tau_is_valid_for_attenuation(cfg, tau):
         return np.nan
     phi_att = cfg.phi_0 * np.exp(-tau)
     mask = cfg.phi_data > 0.0
     norm = best_fit_normalization(phi_att, cfg.phi_data, cfg.phi_err, mask) if cfg.fit_normalization else 1.0
     if not np.isfinite(norm):
-        return np.nan
+        # The analytic profile is degenerate: the attenuated model has
+        # underflowed, so no A fits the data. That is not "no information" --
+        # it is the most strongly excluded corner of the plane. Falling back to
+        # A=1 keeps chi2 large and FINITE there. Returning NaN instead used to
+        # punch a hole through every downstream consumer: the sensitivity-map
+        # heatmap rendered it as blank (masked) rather than saturated, and it
+        # poisoned the contour extractor's grid minimum.
+        norm = 1.0
     residuals = (norm * phi_att[mask] - cfg.phi_data[mask]) / cfg.phi_err[mask]
     return float(np.sum(residuals**2))
 
@@ -1070,7 +784,7 @@ def fitted_norm_reshaping(cfg: ReshapingConfig, *, positive_bins_only: bool = Tr
 
 def fitted_norm_attenuation_only(cfg: ReshapingConfig) -> float:
     """Best-fit intrinsic normalization for the attenuation-only template."""
-    tau = compute_tau_spectrum(cfg)
+    tau = compute_tau_spectrum(cfg, arm="attenuation")
     if not _tau_is_valid_for_attenuation(cfg, tau):
         return np.nan
     mask = cfg.phi_data > 0.0
@@ -1099,20 +813,18 @@ def scan_reshaping_chi2(
     b_grid: np.ndarray | None = None,
     n_theta: int = _N_THETA_DEFAULT,
     apply_roi_weight: bool = True,
-    roi_half_angle_deg: float | None = 60.0,
     also_compute_attenuation: bool = True,
     fit_normalization: bool = True,
     max_tau_single_scatter: float | None = 0.3,
     require_lambda_gt_mdm: bool = True,
     tau_prefactor_override: float | None = None,
+    roi_recovery_model: str = "template",
+    x_roi: float | None = None,
     verbose: bool = True,
 ) -> dict:
     """
     Scan (m_chi, Lambda) and compute chi^2 under both reshaping and
     simple attenuation models.
-
-    The scan is structured identically to `chi2_grid_scan_eft` in
-    attenuation_eft.py, making results directly comparable.
 
     Parameters
     ----------
@@ -1122,8 +834,8 @@ def scan_reshaping_chi2(
     E_bins, phi_0, phi_data, phi_err : energy axis / source / data
     l_grid, b_grid : ROI grids for emissivity weighting
     n_theta : angular integration resolution
-    apply_roi_weight : apply geometric ROI recovery fraction to kernel
-    roi_half_angle_deg : ROI half-angle for recovery fraction (if apply_roi_weight)
+    apply_roi_weight : apply the ROI recovery weight w(theta) to the kernel
+    roi_recovery_model : 'template' (halo ROI) or 'unity' (IGRB); see ReshapingConfig
     also_compute_attenuation : also run the simple attenuation chi2 for comparison
     verbose : print progress
 
@@ -1143,10 +855,10 @@ def scan_reshaping_chi2(
     nM = len(m_chi_arr)
     nL = len(Lambda_arr)
 
-    _E = E_BINS_GEV if E_bins is None else np.asarray(E_bins, dtype=float)
-    _phi0 = PHI_TOTANI if phi_0 is None else np.asarray(phi_0, dtype=float)
-    _phi_data = PHI_TOTANI if phi_data is None else np.asarray(phi_data, dtype=float)
-    _phi_err = SIGMA_TOTANI if phi_err is None else np.asarray(phi_err, dtype=float)
+    _E = _aeft.E_BINS_GEV if E_bins is None else np.asarray(E_bins, dtype=float)
+    _phi0 = _aeft.PHI_TOTANI if phi_0 is None else np.asarray(phi_0, dtype=float)
+    _phi_data = _aeft.PHI_TOTANI if phi_data is None else np.asarray(phi_data, dtype=float)
+    _phi_err = _aeft.SIGMA_TOTANI if phi_err is None else np.asarray(phi_err, dtype=float)
     _l = np.linspace(-60.0, 60.0, 15) if l_grid is None else np.asarray(l_grid, dtype=float)
     _b = (np.concatenate([np.linspace(-60, -10, 8), np.linspace(10, 60, 8)])
           if b_grid is None else np.asarray(b_grid, dtype=float))
@@ -1177,7 +889,6 @@ def scan_reshaping_chi2(
                 b_grid=_b,
                 n_theta=n_theta,
                 apply_roi_weight=apply_roi_weight,
-                roi_half_angle_deg=roi_half_angle_deg,
                 E_bins=_E,
                 phi_0=_phi0,
                 phi_data=_phi_data,
@@ -1186,9 +897,11 @@ def scan_reshaping_chi2(
                 max_tau_single_scatter=max_tau_single_scatter,
                 require_lambda_gt_mdm=require_lambda_gt_mdm,
                 tau_prefactor_override=tau_prefactor_override,
+                roi_recovery_model=roi_recovery_model,
+                x_roi=x_roi,
             )
 
-            tau = compute_tau_spectrum(cfg)
+            tau = compute_tau_spectrum(cfg, arm="reshaping")
             tau_grid[i, j] = tau
 
             if also_compute_attenuation and _tau_is_valid_for_attenuation(cfg, tau):
@@ -1224,6 +937,7 @@ def scan_reshaping_chi2(
         "fit_normalization": fit_normalization,
         "max_tau_single_scatter": -1.0 if max_tau_single_scatter is None else max_tau_single_scatter,
         "require_lambda_gt_mdm": require_lambda_gt_mdm,
+        "roi_recovery_model": roi_recovery_model,
     }
     return result
 
@@ -1308,7 +1022,7 @@ def print_kinematics_summary(cfg: ReshapingConfig) -> None:
     """
     from core.kinematics import max_energy_loss_fraction
 
-    tau = compute_tau_spectrum(cfg)
+    tau = compute_tau_spectrum(cfg, arm="reshaping")
     delta_max = max_energy_loss_fraction(cfg.E_bins, cfg.m_chi)
 
     print(f"\n{'='*60}")

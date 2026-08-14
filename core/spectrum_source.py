@@ -131,53 +131,67 @@ IGRB_J_COSMO_GeV_cm2 = 1.37e22
 # Ackermann et al. 2015, "The spectrum of isotropic diffuse gamma-ray emission
 # between 100 MeV and 820 GeV", ApJ 799, 86, arXiv:1410.3696.
 #
-# Values below are Foreground Model A (their default reconstruction) from
-# Table 3, converted to units MeV cm⁻² s⁻¹ sr⁻¹ (the same convention as
-# HaloSpectrum.phi). 26 bins, 100 MeV → 820 GeV.
+# Source: the published machine-readable Table 3 (apj504089t3_mrt.txt), kept
+# verbatim at data/ackermann2015_igrb_table3_mrt.txt. Foreground model A rows.
 #
-# Columns:  E_min [GeV]  E_max [GeV]  E²Φ [MeV cm⁻² s⁻¹ sr⁻¹]  σ_stat  σ_sys
+# Table 3 tabulates the BAND-INTEGRATED IGRB flux f [cm^-2 s^-1 sr^-1], not a
+# differential spectrum. It is converted here to E^2 dN/dE at the log-centre of
+# each band, to match the HaloSpectrum.phi convention:
 #
-# These numbers are consistent in overall shape and normalisation with the
-# published Model A curve (their Fig. 8) but were reconstructed from a
-# widely-reproduced digitisation rather than the exact machine-readable
-# table. Check against the published Table 3 before final submission and
-# correct any bins that differ at the >1σ level.
+#     E2dNdE = E_c^2 * f / (E_hi - E_lo),      E_c = sqrt(E_lo * E_hi)
+#
+# The two uncertainty columns are kept separate because they are not the same
+# kind of quantity. sig_stat is Table 3's "statistical + instrument related
+# systematics" (its note 1), which is per-bin and independent. sig_fg is the
+# foreground-modelling uncertainty, which is a single correlated choice of
+# Galactic diffuse model across every bin, is strongly asymmetric, and is NOT
+# independent per-bin noise. load_igrb_source() uses sig_stat alone; treating
+# sig_fg as independent Gaussian error would double-count a correlated
+# systematic that the profiled source normalisation already largely absorbs.
+#
+# VALIDATED: predicting each band flux from the paper's own Table 4 model-A fit
+# (I_100 = 0.95e-7 MeV^-1 cm^-2 s^-1 sr^-1, gamma = 2.32, E_cut = 279 GeV)
+# reproduces the tabulated f with rms pull 0.30 and a total of 7.19e-6 against
+# the published (7.2 +- 0.6)e-6 cm^-2 s^-1 sr^-1 above 100 MeV.
+#
+# Columns:  E_min [GeV]  E_max [GeV]  E^2 dN/dE [MeV cm^-2 s^-1 sr^-1]
+#           sig_stat (stat + instrument)  sig_fg (foreground modelling)
 _ACKERMANN2015_TABLE3_MODEL_A = np.array([
-    # E_min      E_max       E²Φ [MeV cm⁻² s⁻¹ sr⁻¹]   σ_stat        σ_sys
-    [0.1000,    0.1414,     1.010e-05,                1.30e-06,     1.98e-06],
-    [0.1414,    0.2000,     1.036e-05,                6.50e-07,     1.66e-06],
-    [0.2000,    0.2828,     9.870e-06,                4.60e-07,     1.29e-06],
-    [0.2828,    0.4000,     8.560e-06,                3.50e-07,     8.10e-07],
-    [0.4000,    0.5657,     7.290e-06,                3.10e-07,     5.10e-07],
-    [0.5657,    0.8000,     5.780e-06,                2.60e-07,     3.10e-07],
-    [0.8000,    1.1314,     4.470e-06,                2.20e-07,     2.10e-07],
-    [1.1314,    1.6000,     3.320e-06,                1.90e-07,     1.60e-07],
-    [1.6000,    2.2627,     2.410e-06,                1.60e-07,     1.20e-07],
-    [2.2627,    3.2000,     1.720e-06,                1.30e-07,     9.30e-08],
-    [3.2000,    4.5255,     1.230e-06,                1.10e-07,     6.80e-08],
-    [4.5255,    6.4000,     8.660e-07,                9.30e-08,     4.90e-08],
-    [6.4000,    9.0510,     6.100e-07,                7.80e-08,     3.60e-08],
-    [9.0510,    12.800,     4.220e-07,                6.30e-08,     2.60e-08],
-    [12.800,    18.102,     2.980e-07,                5.20e-08,     1.90e-08],
-    [18.102,    25.600,     2.070e-07,                4.20e-08,     1.40e-08],
-    [25.600,    36.204,     1.410e-07,                3.30e-08,     1.10e-08],
-    [36.204,    51.200,     9.700e-08,                2.60e-08,     8.30e-09],
-    [51.200,    72.408,     6.700e-08,                2.10e-08,     6.60e-09],
-    [72.408,    102.40,     4.600e-08,                1.60e-08,     5.40e-09],
-    [102.40,    144.82,     3.100e-08,                1.30e-08,     4.50e-09],
-    [144.82,    204.80,     2.100e-08,                1.00e-08,     3.90e-09],
-    [204.80,    289.63,     1.400e-08,                7.90e-09,     3.40e-09],
-    [289.63,    409.60,     9.400e-09,                6.10e-09,     3.10e-09],
-    [409.60,    579.26,     6.300e-09,                4.60e-09,     2.90e-09],
-    [579.26,    819.20,     4.200e-09,                3.30e-09,     2.80e-09],
+    [  0.1000,   0.1414, 9.4574e-04, 1.8816e-04, 1.7694e-04],
+    [  0.1414,   0.2000, 8.2089e-04, 2.0829e-04, 1.6485e-04],
+    [  0.2000,   0.2828, 7.2203e-04, 2.1121e-04, 1.5642e-04],
+    [  0.2828,   0.4000, 6.4185e-04, 1.9207e-04, 1.5012e-04],
+    [  0.4000,   0.5657, 6.1261e-04, 1.3752e-04, 1.5267e-04],
+    [  0.5657,   0.8000, 6.2891e-04, 7.7841e-05, 1.6375e-04],
+    [  0.8000,   1.1314, 5.2767e-04, 5.9895e-05, 1.4892e-04],
+    [  1.1314,   1.6000, 4.1296e-04, 4.9660e-05, 1.3544e-04],
+    [  1.6000,   2.2627, 3.2942e-04, 4.4873e-05, 1.4772e-04],
+    [  2.2627,   3.2000, 3.0375e-04, 3.2043e-05, 1.4361e-04],
+    [  3.2000,   4.5255, 2.5456e-04, 3.2995e-05, 1.3110e-04],
+    [  4.5255,   6.4000, 2.2574e-04, 3.6843e-05, 1.1337e-04],
+    [  6.4000,   9.0510, 2.0935e-04, 3.2230e-05, 1.0002e-04],
+    [  9.0510,  12.8000, 2.3544e-04, 3.0542e-05, 8.1196e-05],
+    [ 12.8000,  18.1019, 1.7651e-04, 2.3370e-05, 6.6536e-05],
+    [ 18.1019,  25.6000, 1.6372e-04, 2.0176e-05, 5.7690e-05],
+    [ 25.6000,  36.2039, 1.3556e-04, 1.6476e-05, 4.7128e-05],
+    [ 36.2039,  51.2000, 1.2991e-04, 1.5420e-05, 4.0927e-05],
+    [ 51.2000,  72.4077, 1.1085e-04, 1.3817e-05, 3.2925e-05],
+    [ 72.4077, 102.4000, 8.9146e-05, 1.2306e-05, 2.5493e-05],
+    [102.4000, 144.8155, 5.4051e-05, 9.9535e-06, 1.6913e-05],
+    [144.8155, 204.8000, 4.8410e-05, 9.9578e-06, 1.2952e-05],
+    [204.8000, 289.6309, 3.2976e-05, 9.3452e-06, 8.8558e-06],
+    [289.6309, 409.6000, 3.1614e-05, 1.0432e-05, 8.4503e-06],
+    [409.6000, 579.2619, 1.0251e-05, 7.5566e-06, 4.6744e-06],
+    [579.2619, 819.2000, 8.3183e-08, 4.4182e-06, 3.6232e-06],
 ])
 
 
 def load_igrb_source() -> SpectrumSource:
     """Return a :class:`SpectrumSource` for the Ackermann+ 2015 IGRB.
 
-    Uses Foreground Model A (their default reconstruction). Statistical and
-    systematic uncertainties are combined in quadrature to form ``phi_err_sym``.
+    Uses Foreground Model A (their default reconstruction). ``phi_err_sym`` is
+    the statistical-plus-instrument uncertainty; see the table header for why
+    the foreground-modelling uncertainty is not added to it.
     The column density is the cosmological baseline of §II.A,
     J_cosmo = 1.37 × 10²² GeV cm⁻².
     """
@@ -185,7 +199,7 @@ def load_igrb_source() -> SpectrumSource:
     E_min, E_max = tbl[:, 0], tbl[:, 1]
     E_ref = np.sqrt(E_min * E_max)                  # log-centre of each bin
     phi = tbl[:, 2]                                 # MeV cm⁻² s⁻¹ sr⁻¹
-    err = np.sqrt(tbl[:, 3] ** 2 + tbl[:, 4] ** 2)  # quadrature sum
+    err = tbl[:, 3]                                 # stat + instrument only
 
     return SpectrumSource(
         E_bins_GeV=E_ref,
@@ -203,14 +217,19 @@ def load_igrb_source() -> SpectrumSource:
                 "cosmological baseline: rho_chi=1.2e-6 GeV/cm^3, L=1.14e28 cm "
                 "(paper §II.A)"
             ),
-            "err_convention": "sqrt(stat^2 + sys^2), quadrature",
+            "err_convention": (
+                "statistical + instrument systematics (Table 3 note 1). The "
+                "foreground-modelling uncertainty is a correlated choice of "
+                "Galactic diffuse model, not independent per-bin noise, and is "
+                "carried in column 4 for reference rather than added here."
+            ),
             "n_bins": len(tbl),
             "E_min_GeV": float(E_min.min()),
             "E_max_GeV": float(E_max.max()),
-            "TODO_verify": (
-                "Table values are consistent with published digitisation. "
-                "Verify against Ackermann+ 2015 machine-readable Table 3 "
-                "before final submission."
+            "provenance": (
+                "published machine-readable Table 3 (apj504089t3_mrt.txt), "
+                "model A; verbatim copy at "
+                "data/ackermann2015_igrb_table3_mrt.txt"
             ),
         },
         dataset_kind="igrb",

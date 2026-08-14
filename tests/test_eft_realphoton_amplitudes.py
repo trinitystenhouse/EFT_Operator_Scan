@@ -23,14 +23,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-# core.attenuation_eft loads the Totani MCMC posteriors at import time and
-# fails loudly if absent (deliberate).  None of the amplitude physics tested
-# here depends on them, so on machines without the posteriors we point the
-# loader at synthetic placeholder files via the TOTANI_MCMC_DIR override.
-_default = (Path(__file__).resolve().parents[2] / "Totani_paper_check" / "mcmc"
-            / "mcmc_results_fig6")
-if not (_default.exists() and any(_default.glob("mcmc_results_k*.npz"))) \
-        and not os.environ.get("TOTANI_MCMC_DIR"):
+# None of the amplitude physics tested here depends on the halo posterior, so
+# on machines without it we point the loader at synthetic placeholder files via
+# the TOTANI_MCMC_DIR override.
+if not os.environ.get("TOTANI_MCMC_DIR"):
     _tmp = Path(tempfile.mkdtemp(prefix="totani_stub_"))
     for k in range(13):
         np.savez(_tmp / f"mcmc_results_k{k:02d}.npz",

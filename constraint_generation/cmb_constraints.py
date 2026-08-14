@@ -123,12 +123,12 @@ def cmb_exclusion_boundary_analytic(m_chi_arr, *, dm_type="fermionic",
     """
     Invert the Planck bound sigma_0/m_chi < u_max at E = T_CMB_0.
 
-    Inverts numerically off sigma_at_cmb() (which returns cm^2 from the
-    tree-level EFT cross sections) using the exact power-law
-    sigma ~ Lambda^-lambda_power:
+    The inversion is NUMERICAL, off sigma_at_cmb() [which returns cm^2 from the
+    real-photon cross sections], using the exact power law sigma ~
+    Lambda^-lambda_power:
         Lambda_crit = Lambda_ref * [ sigma(Lambda_ref) / (u_max * m_chi) ]^(1/lambda_power)
-    Anapole and charge radius scatter real photons with exactly zero
-    tree-level cross section, so they return an empty boundary.
+    Anapole and charge radius scatter real photons with EXACTLY ZERO tree-level
+    cross section, so they return an empty boundary.
 
     Returns
     -------
@@ -181,7 +181,7 @@ def cmb_exclusion_boundary_analytic(m_chi_arr, *, dm_type="fermionic",
         with np.errstate(divide="ignore", invalid="ignore"):
             lam_crit[i] = LAMBDA_REF * (sig_ref / (u_max * m)) ** (1.0 / lam_power)
     if majorana and "rayleigh" in key:
-        lam_crit = lam_crit / (2.0 ** (1.0 / 12.0))  # unchanged legacy Majorana convention
+        lam_crit = lam_crit / (2.0 ** (1.0 / 12.0))  # Majorana convention, Sec. IV A
 
     mask = np.isfinite(lam_crit) & (lam_crit > 0.0)
     if not np.any(mask):

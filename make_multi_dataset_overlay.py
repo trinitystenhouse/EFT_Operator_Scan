@@ -16,7 +16,6 @@ Boundary files are produced by ``make_data_driven_scattering_limits.py`` with
 stems
 
     mcmc_{halo_profile}_{halo|pppc_bb_mann<M>}_..._90cl.npz
-    dsph_{selection}_{measured|pppc_bb_mann<M>}_..._90cl.npz
     igrb_ackermann2015a_{measured|pppc_bb_mann<M>}_..._90cl.npz
 
 The dataset / source_kind / m_ann are auto-detected from the filenames.
@@ -53,7 +52,7 @@ _ROOT = _HERE.parent
 sys.path.insert(0, str(_ROOT))
 sys.path.insert(0, str(_HERE))
 
-from helpers.trinity_plotting import save_figure, set_paper_style  # noqa: E402
+from helpers.plot_style import save_figure, set_paper_style, theme_ink as _ink, theme_legend_kw  # noqa: E402
 
 BOUNDARY_DIR = _HERE / "constraint_boundaries"
 OUTPUT_DIR = _HERE / "plots"
@@ -85,10 +84,6 @@ DATASET_STYLES = {
     "halo": {
         "label":  r"GC halo",
         "color":  "#111111",  # black
-    },
-    "dsph": {
-        "label":  r"dSph stack",
-        "color":  "#0B7285",  # teal
     },
     "igrb": {
         "label":  r"IGRB",
@@ -134,7 +129,7 @@ SOURCE_STYLES = {
         "lw":        1.8,
         "label_suffix": r", PPPC $W^{+}W^{-}$ 0.72 TeV",
     },
-    # Backward-compat aliases for the legacy 100 / 500 / 1000 GeV benchmarks.
+    # Aliases for the 100 / 500 / 1000 GeV benchmarks.
     "pppc_bb_mann100": {
         "linestyle": (0, (2, 1.5)),
         "lw":        1.8,
@@ -159,7 +154,7 @@ SOURCE_STYLES = {
 
 # Filename patterns to detect the (dataset, source_kind) from a boundary file.
 _FILENAME_PATTERNS = [
-    # halo/measured (legacy: source_tag='halo')
+    # halo/measured (the halo files carry source_tag='halo')
     (re.compile(
         r"^mcmc_(?P<profile>[^_]+(?:_[^_]+)*?)_"
         r"(?P<source>halo)_raw_attenuation_"
@@ -171,12 +166,6 @@ _FILENAME_PATTERNS = [
         r"(?P<source>pppc_(?:bb|WW)_mann\d+(?:\.\d+)?)_raw_attenuation_"
         r"(?P<dm>[a-z]+)_(?P<op>[a-z_]+?)(?P<maj>_majorana)?_90cl\.npz$"
      ), "halo"),
-    # dsph/measured or dsph/pppc
-    (re.compile(
-        r"^dsph_(?P<profile>[^_]+)_"
-        r"(?P<source>measured|pppc_(?:bb|WW)_mann\d+(?:\.\d+)?)_raw_attenuation_"
-        r"(?P<dm>[a-z]+)_(?P<op>[a-z_]+?)(?P<maj>_majorana)?_90cl\.npz$"
-     ), "dsph"),
     # igrb/measured or igrb/pppc
     (re.compile(
         r"^igrb_(?P<profile>[^_]+)_"
@@ -203,9 +192,15 @@ def _parse_boundary_filename(name: str) -> dict | None:
     return None
 
 
+# Variant tag inserted before "_90cl" when locating boundary files, so the
+# figures can be built from an alternative generation (e.g. "_profnorm",
+# the profiled-normalisation grids) without renaming the production set.
+# Empty string = the production grids. Set by make_paper_results_figures.
+BOUNDARY_SUFFIX = ""
+
+
 def discover_boundaries(operator_key: str, sources: list[str],
                         halo_profile: str,
-                        dsph_selection: str,
                         pppc_masses: list[int],
                         datasets: list[str] = None,
                         pppc_channels: list[str] | None = None) -> list[dict]:
@@ -213,29 +208,35 @@ def discover_boundaries(operator_key: str, sources: list[str],
 
     Parameters
     ----------
-    datasets : list of {'halo', 'dsph', 'igrb'}, optional
-        Restrict to these datasets. Default: include all three.
+    datasets : list of {'halo', 'igrb'}, optional
+        Restrict to these datasets. Default: include both.
     pppc_channels : list of {'bb', 'WW'}, optional
         Which PPPC annihilation channels to include when ``sources`` contains
         the shorthand 'pppc'. Default: ['bb', 'WW'].
     """
     cfg = PANEL_CONFIGS[operator_key]
     wanted_source_tags = _expand_wanted_sources(sources, pppc_masses, pppc_channels)
-    wanted_datasets = set(datasets) if datasets else {"halo", "dsph", "igrb"}
+    wanted_datasets = set(datasets) if datasets else {"halo", "igrb"}
     records = []
     for path in sorted(BOUNDARY_DIR.iterdir()):
-        if not path.name.endswith("_90cl.npz"):
+        # Only files carrying the active variant tag, and strip it before
+        # parsing so the filename grammar below is unchanged.
+        tail = f"{BOUNDARY_SUFFIX}_90cl.npz"
+        if not path.name.endswith(tail):
             continue
-        parsed = _parse_boundary_filename(path.name)
+        parsed = _parse_boundary_filename(
+            path.name[: -len(tail)] + "_90cl.npz" if BOUNDARY_SUFFIX else path.name)
         if parsed is None:
             continue
+        # _parse_boundary_filename rebuilds "path" from the name it was handed,
+        # which has the variant tag stripped -- point it back at the real file.
+        parsed["path"] = path
         if parsed["dataset"]  not in wanted_datasets: continue
         if parsed["dm_type"]  != cfg["dm_type"]:  continue
         if parsed["operator"] != cfg["operator"]: continue
         if bool(parsed["majorana"]) != bool(cfg["majorana"]): continue
         if parsed["source"]   not in wanted_source_tags:      continue
         if parsed["dataset"] == "halo" and parsed["profile"] != halo_profile: continue
-        if parsed["dataset"] == "dsph" and parsed["profile"] != dsph_selection: continue
         records.append(parsed)
     return records
 
@@ -254,7 +255,7 @@ def _expand_wanted_sources(sources: list[str], pppc_masses: list[int],
     lowered = [str(s).lower() for s in sources]
     for s_raw, s in zip(sources, lowered):
         if s == "measured":
-            # dsph/igrb use 'measured' tag; halo uses legacy 'halo' tag
+            # igrb uses the 'measured' tag; halo uses 'halo'
             wanted.add("measured")
             wanted.add("halo")
         elif s == "pppc":
@@ -283,9 +284,21 @@ def _load_curve(path: Path) -> tuple[np.ndarray, np.ndarray]:
     return m[finite], L[finite]
 
 
-def _eft_valid_curve(m_arr: np.ndarray, omega_max: float = 494.0,
+# Photon-energy ceiling [GeV] that positions the EFT kinematic-validity guide.
+# None falls back to DEFAULT_OMEGA_MAX (the full LAT band). The master figure
+# script sets this so every operator panel quotes one ceiling. Moves the DRAWN
+# GUIDE only -- the limit curves are not recomputed.
+OMEGA_MAX_OVERRIDE = None
+DEFAULT_OMEGA_MAX = 494.0
+
+
+
+def _eft_valid_curve(m_arr: np.ndarray, omega_max: float | None = None,
                       eft_factor: float = 1.0) -> np.ndarray:
     """Λ_kin such that Λ² ≥ max(s_max, |t|_max) at photon energy omega_max."""
+    if omega_max is None:
+        omega_max = (OMEGA_MAX_OVERRIDE if OMEGA_MAX_OVERRIDE is not None
+                     else DEFAULT_OMEGA_MAX)
     m = np.asarray(m_arr, dtype=float)
     s_max = m ** 2 + 2.0 * m * omega_max
     denom = 1.0 + 2.0 * omega_max / np.where(m > 0, m, np.nan)
@@ -339,7 +352,7 @@ def plot_overlay_panel(ax, operator_key: str, records: list[dict],
     ax.set_ylim(*y_lim)
     ax.set_title(cfg["title"], fontsize=title_fontsize)
     ax.set_xlabel(r"$m_{\chi}$ [GeV]", fontsize=axis_label_fontsize)
-    ax.set_ylabel(r"$\Lambda/C^{1/n}$ [GeV]", fontsize=axis_label_fontsize)
+    ax.set_ylabel(r"$\Lambda/(c^{1/n} f_{\rm scat}^{1/p})$ [GeV]", fontsize=axis_label_fontsize)
     ax.grid(True, which="both", alpha=0.15)
     ax.tick_params(axis="both", which="both", labelsize=tick_labelsize)
     return handles
@@ -352,9 +365,9 @@ def main():
                    help="Operators to plot. Default: full 9-panel set, or paper-summary set.")
     p.add_argument("--paper-summary", action="store_true",
                    help="Compact 3-panel version matching Fig 2 of the paper.")
-    p.add_argument("--datasets", nargs="+", default=["halo", "dsph", "igrb"],
-                   choices=["halo", "dsph", "igrb"],
-                   help="Which datasets to overlay. Default: all three.")
+    p.add_argument("--datasets", nargs="+", default=["halo", "igrb"],
+                   choices=["halo", "igrb"],
+                   help="Which datasets to overlay. Default: both.")
     p.add_argument("--sources", nargs="+", default=["measured", "pppc"],
                    help="Which source kinds to include. Any of 'measured', 'pppc'.")
     p.add_argument("--pppc-masses", nargs="+", type=int, default=[550, 720],
@@ -365,12 +378,10 @@ def main():
                    help="Which PPPC annihilation channels to include when 'pppc' in --sources.")
     p.add_argument("--halo-profile", default="pixelwise_global_rho2",
                    help="Halo profile tag to include. Default: pixelwise_global_rho2.")
-    p.add_argument("--dsph-selection", default="classical",
-                   help="dSph selection tag to include. Default: classical.")
     p.add_argument("--outfile", default=None,
                    help="Output basename (no extension). Default: auto based on --paper-summary.")
     p.add_argument("--style", default="paper",
-                   help="trinity_plotting style. Default: paper.")
+                   help="plot_style style. Default: paper.")
     # Print-geometry overrides (used by make_paper_results_figures.py for PRD width)
     p.add_argument("--fig-width", type=float, default=None,
                    help="Figure width [inches]. Overrides internal figsize.")
@@ -383,7 +394,7 @@ def main():
     args = p.parse_args()
 
     if args.style:
-        os.environ["TRINITY_PLOT_STYLE"] = args.style
+        os.environ["EFT_PLOT_STYLE"] = args.style
     if args.operators is None:
         args.operators = PAPER_SUMMARY_OPERATORS if args.paper_summary else list(PANEL_CONFIGS.keys())
     if args.outfile is None:
@@ -411,7 +422,6 @@ def main():
     print(f"  sources     : {args.sources}")
     print(f"  pppc masses : {args.pppc_masses}")
     print(f"  halo profile: {args.halo_profile}")
-    print(f"  dsph select : {args.dsph_selection}")
     print()
 
     combined_handles: dict[str, Line2D] = {}
@@ -419,7 +429,6 @@ def main():
         records = discover_boundaries(
             op, sources=args.sources,
             halo_profile=args.halo_profile,
-            dsph_selection=args.dsph_selection,
             pppc_masses=args.pppc_masses,
             datasets=args.datasets,
             pppc_channels=args.pppc_channels,
@@ -459,7 +468,7 @@ def main():
             axes[i].tick_params(axis="y", labelleft=False)
 
     # Shared legend styling (Totani make_paper_results_figures convention).
-    LEGEND_KW = dict(frameon=True, framealpha=0.6, facecolor="white", edgecolor="0.7")
+    LEGEND_KW = dict(**theme_legend_kw())
     # Split legend labels at the ", " between the dataset and Φ_null clauses
     # WITHOUT breaking inside a $...$ math span. Split only if both sides of
     # the comma sit entirely outside math mode.

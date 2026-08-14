@@ -1,14 +1,10 @@
 """
-Helper utilities for DM-photon scattering calculations.
+Plotting helpers for the photon-DM scattering analysis.
 
 Modules:
-  - cross_section_cache: Caching system for expensive cross-section computations
-  - numerical_utils: Utilities for handling extremely small numbers
-  - trinity_plotting: Plotting styles and utilities
+  - plot_style: the paper's font/colour scheme and figure-saving utilities
 """
 
 __all__ = [
-    'cross_section_cache',
-    'numerical_utils',
-    'trinity_plotting',
+    'plot_style',
 ]

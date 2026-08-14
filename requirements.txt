@@ -3,12 +3,5 @@
 numpy
 scipy
 matplotlib
-pandas
-astropy
-pytest
-
-# Used by the bundled helpers/ and totani_helpers/ packages (plotting style,
-# progress bars, and MCMC/FITS I/O utilities).
-Pillow
-tqdm
 cycler
+pytest

@@ -21,8 +21,9 @@ _ROOT = os.path.dirname(_HERE)
 sys.path.insert(0, _ROOT)
 sys.path.insert(0, _HERE)
 
-from helpers.trinity_plotting import get_cmap_colors, save_figure, set_plot_style, set_paper_style
+from helpers.plot_style import get_cmap_colors, save_figure, set_plot_style, set_paper_style, theme_ink as _ink, theme_legend_kw
 from constraints_data.limits import get_operator_limits
+from core.attenuation_eft import _operator_metadata
 
 
 BOUNDARY_DIR = Path(__file__).resolve().parent / "constraint_boundaries"
@@ -30,9 +31,10 @@ CONSTRAINT_DIR = Path(__file__).resolve().parent / "constraints_data"
 DETECTION_DIR = CONSTRAINT_DIR / "detection"
 OUTPUT_DIR = Path(__file__).resolve().parent / "plots"
 PLASMA_DARK_COLORS = get_cmap_colors(cmap_name="plasma", n=22, start=0.12, end=0.98)
-_FERMI_BUNDLED = Path(__file__).resolve().parent / "data" / "fermi_halo_spectrum.txt"
-_FERMI_EXTERNAL = Path(__file__).resolve().parent.parent / "fermi_data" / "york" / "processed" / "spectrum_data.txt"
-DEFAULT_FERMI_SPECTRUM = _FERMI_BUNDLED if _FERMI_BUNDLED.exists() else _FERMI_EXTERNAL
+# Full LAT band, used only as the fallback ceiling for the validity guide when
+# OMEGA_MAX_OVERRIDE is unset. The paper's figures always set the override to
+# the 168.9 GeV ceiling of Sec. IV B.
+DEFAULT_FERMI_SPECTRUM = Path(__file__).resolve().parent / "data" / "fermi_halo_spectrum.txt"
 
 INDIRECT_COLOR = "#9B6DFF"
 INDIRECT_ALT = "#B18CFF"
@@ -88,7 +90,15 @@ DATA_DRIVEN_PROFILE_STYLES = {
         "label": r"Scattering attenuation within NFW $\rho^{2.5}$ halo (this work)",
         "raw_attenuation_label": r"Scattering attenuation within NFW $\rho^{2.5}$ halo (this work)",
         "color": "#C92A2A",
-        "raw_ls": (0, (5, 2)),
+        # Dash PHASE offset by half a period. This curve is drawn
+        # on top of pixelwise_global_rho2, which uses (0, (5, 2)); with the same
+        # phase the two sets of dashes coincide exactly and the 2/7 "off"
+        # fraction shows through as white holes in what should read as one
+        # line -- most obviously in the Rayleigh Full panel of Fig. 3, where
+        # the two profiles nearly coincide so the black curve never fills the
+        # gaps. Offsetting by 3.5 makes the magenta dashes land in the black
+        # dashes' gaps, so the union covers the full period.
+        "raw_ls": (3.5, (5, 2)),
         "reshaping_ls": "-",
         "lw": 2.6,
     },
@@ -141,8 +151,6 @@ PANEL_CONFIGS = {
     # ── Dirac-only operators ─────────────────────────────────────────────────
     "dipole_magnetic": {
         "title": "Magnetic Dipole (Dirac)",
-        "totani_file": "totani_fermionic_dipole_magnetic_90cl.npz",
-        "naive_file":  "fermi_naive_fermionic_dipole_magnetic_0.01.npz",
         "constraint_subdir": "magdipole",
         "extra_constraint_files": ["files (3)/arina2020_lep_zdecay_dipole.txt"],
         "dm_type": "fermionic",
@@ -151,8 +159,6 @@ PANEL_CONFIGS = {
     },
     "dipole_electric": {
         "title": "Electric Dipole (Dirac)",
-        "totani_file": "totani_fermionic_dipole_electric_90cl.npz",
-        "naive_file":  "fermi_naive_fermionic_dipole_electric_0.01.npz",
         "constraint_subdir": "eldipole",
         "extra_constraint_files": ["files (3)/arina2020_lep_zdecay_dipole.txt"],
         "dm_type": "fermionic",
@@ -161,8 +167,6 @@ PANEL_CONFIGS = {
     },
     "charge_radius": {
         "title": "Charge Radius (Dirac)",
-        "totani_file": "totani_fermionic_charge_radius_90cl.npz",
-        "naive_file":  "fermi_naive_fermionic_charge_radius_0.01.npz",
         "constraint_subdir": "chargeradius",
         "dm_type": "fermionic",
         "operator": "charge_radius",
@@ -172,8 +176,6 @@ PANEL_CONFIGS = {
     # ── Dirac anapole ────────────────────────────────────────────────────────
     "anapole": {
         "title": "Anapole (Dirac)",
-        "totani_file": "totani_fermionic_anapole_90cl.npz",
-        "naive_file":  "fermi_naive_fermionic_anapole_0.01.npz",
         "constraint_subdir": "anapole",
         "dm_type": "fermionic",
         "operator": "anapole",
@@ -183,8 +185,6 @@ PANEL_CONFIGS = {
     # ── Majorana operators (dipole/charge_radius absent; anapole + Rayleigh only) ──
     "anapole_majorana": {
         "title": "Anapole / Axial Charge Radius (Majorana)",
-        "totani_file": "totani_fermionic_anapole_majorana_90cl.npz",
-        "naive_file":  "fermi_naive_fermionic_anapole_majorana_0.01.npz",
         "constraint_subdir": "anapole",          # shares literature constraints with Dirac anapole
         "dm_type": "fermionic",
         "operator": "anapole",
@@ -192,8 +192,6 @@ PANEL_CONFIGS = {
     },
     "rayleigh_even_majorana": {
         "title": "Rayleigh Even (Majorana)",
-        "totani_file": "totani_fermionic_rayleigh_even_majorana_90cl.npz",
-        "naive_file":  "fermi_naive_fermionic_rayleigh_even_majorana_0.01.npz",
         "constraint_subdir": "rayleigh_even",
         "dm_type": "fermionic",
         "operator": "rayleigh_even",
@@ -201,20 +199,15 @@ PANEL_CONFIGS = {
     },
     "rayleigh_odd_majorana": {
         "title": "Rayleigh Odd (Majorana)",
-        "totani_file": "totani_fermionic_rayleigh_odd_majorana_90cl.npz",
-        "naive_file":  "fermi_naive_fermionic_rayleigh_odd_majorana_0.01.npz",
         "constraint_subdir": "rayleigh_odd",
         "dm_type": "fermionic",
         "operator": "rayleigh_odd",
         "majorana": True,
     },
     # CP-even and CP-odd combined. Literature constraints are drawn from both
-    # sub-directories, following the Dirac rayleigh_full entry below. The legacy
-    # totani_file and naive_file have no full-Majorana counterparts; both are
-    # optional and the panel draws the data-driven boundaries regardless.
+    # sub-directories, following the Dirac rayleigh_full entry below.
     "rayleigh_full_majorana": {
         "title": "Rayleigh Full (Majorana)",
-        "totani_file": "totani_fermionic_rayleigh_full_majorana_90cl.npz",
         "constraint_subdir": ["rayleigh_even", "rayleigh_odd"],
         "dm_type": "fermionic",
         "operator": "rayleigh_full",
@@ -224,8 +217,6 @@ PANEL_CONFIGS = {
     # ── Dirac Rayleigh ───────────────────────────────────────────────────────
     "rayleigh_even": {
         "title": "Rayleigh Even (Dirac)",
-        "totani_file": "totani_fermionic_rayleigh_even_90cl.npz",
-        "naive_file":  "fermi_naive_fermionic_rayleigh_even_0.01.npz",
         "constraint_subdir": "rayleigh_even",
         "dm_type": "fermionic",
         "operator": "rayleigh_even",
@@ -233,8 +224,6 @@ PANEL_CONFIGS = {
     },
     "rayleigh_odd": {
         "title": "Rayleigh Odd (Dirac)",
-        "totani_file": "totani_fermionic_rayleigh_odd_90cl.npz",
-        "naive_file":  "fermi_naive_fermionic_rayleigh_odd_0.01.npz",
         "constraint_subdir": "rayleigh_odd",
         "dm_type": "fermionic",
         "operator": "rayleigh_odd",
@@ -242,8 +231,6 @@ PANEL_CONFIGS = {
     },
     "rayleigh_full": {
         "title": "Rayleigh Full (Dirac)",
-        "totani_file": "totani_fermionic_rayleigh_full_90cl.npz",
-        "naive_file":  "fermi_naive_fermionic_rayleigh_full_0.01.npz",
         "constraint_subdir": ["rayleigh_even", "rayleigh_odd"],
         "dm_type": "fermionic",
         "operator": "rayleigh_full",
@@ -253,8 +240,6 @@ PANEL_CONFIGS = {
     # ── Scalar ───────────────────────────────────────────────────────────────
     "scalar_rayleigh": {
         "title": "Scalar Rayleigh",
-        "totani_file": "totani_scalar_rayleigh_90cl.npz",
-        "naive_file":  "fermi_naive_scalar_rayleigh_0.01.npz",
         "constraint_subdir": "rayleigh_scalar",
         "dm_type": "scalar",
         "operator": "scalar_rayleigh",
@@ -335,12 +320,9 @@ LEGEND_ORDER = [
     "CTA dSphs",
     "Planck",
     "EFT kinematic validity",
-    "Unitarity",
     "Overall deconvolution ceiling",
-    "Digitised Totani attenuation (legacy)",
-    "This work: Totani halo scattering attenuation",
+    "This work: halo scattering attenuation",
     "This work: reshaping",
-    "York GC spectrum (this work, 90% CL)",
     "CMB (Boddy & Gluscevic 2018)",
 ]
 
@@ -386,12 +368,10 @@ def canonical_legend_label(label: str) -> str:
         return "Thermal Relic"
     if label.startswith("Unitarity"):
         return "Unitarity"
-    if label.startswith("This work: Totani halo scattering attenuation") or label.startswith("This work: attenuation"):
-        return "This work: Totani halo scattering attenuation"
+    if label.startswith("This work: halo scattering attenuation") or label.startswith("This work: attenuation"):
+        return "This work: halo scattering attenuation"
     if label.startswith("This work: reshaping"):
         return "This work: reshaping"
-    if label.startswith("York GC spectrum (this work"):
-        return "York GC spectrum (this work, 90% CL)"
     if label.startswith("CMB (Boddy & Gluscevic 2018)"):
         return "CMB (Boddy & Gluscevic 2018)"
     return label
@@ -429,9 +409,9 @@ def legend_group_for_label(label: str):
         return "theory"
     if canon == "EFT kinematic validity":
         return "theory"
-    if canon.startswith("Unitarity") or canon == "Theory / Validity":
+    if canon == "Theory / Validity":
         return "theory"
-    if canon.startswith("This work") or canon.startswith("York GC spectrum"):
+    if canon.startswith("This work"):
         return "this_work"
     return "theory"
 
@@ -477,12 +457,13 @@ def collect_grouped_legend(handles):
 # by every fig.legend / ax.legend call in this file so all four paper figures
 # read as one visual set. Multi-column bottom strip keeps frameon=False; single
 # axes-level legends pick up the framed styling.
-LEGEND_KW = dict(frameon=True, framealpha=0.6, facecolor="white", edgecolor="0.7")
+LEGEND_KW = dict(**theme_legend_kw())
 
 
 def draw_bottom_grouped_legend(
     fig, grouped_handles, *, compact=False, base_fs=10, y_anchor=0.0,
-    ncol=3,
+    ncol=3, compact_categories=None, extra_handles=(),
+    compact_handles=None,
 ):
     """Bottom-strip multi-column legend. Font sizes scale with base_fs so the
     figure matches the rest of the paper set at any PRD width."""
@@ -491,16 +472,35 @@ def draw_bottom_grouped_legend(
         # Concise category labels + this-work halo profiles side-by-side in
         # a boxed strip; matches Fig 5's aesthetic and takes ~half the
         # vertical space of the previous stacked 3-column layout.
-        category_handles = [
-            Line2D([0], [0], color=COLLIDER_COLOR, lw=2.0, label="Collider"),
-            Line2D([0], [0], color=DIRECT_COLOR, lw=2.0, label="Direct detection"),
-            Line2D([0], [0], color=INDIRECT_COLOR, lw=2.0,
-                   label="Indirect detection"),
-            Line2D([0], [0], color=COSMOLOGY_COLOR, lw=2.0, label="Cosmology"),
-        ]
+        # The four category proxies are a DEFAULT, not a fixed set: a caller that
+        # draws extra curves the categories no longer describe (e.g. Fig. 3,
+        # which carries two distinct CMB bounds on opposite sides of its own
+        # contour) passes its own list via compact_categories. Keeping the
+        # default here means every other caller is unaffected.
+        if compact_categories is not None:
+            category_handles = list(compact_categories)
+        else:
+            category_handles = [
+                Line2D([0], [0], color=COLLIDER_COLOR, lw=2.0, label="Collider"),
+                Line2D([0], [0], color=DIRECT_COLOR, lw=2.0, label="Direct detection"),
+                Line2D([0], [0], color=INDIRECT_COLOR, lw=2.0,
+                       label="Indirect detection"),
+                Line2D([0], [0], color=COSMOLOGY_COLOR, lw=2.0, label="Cosmology"),
+            ]
         this_work_handles = grouped_handles.get("this_work", [])
-        # Order: category bounds first, then the halo-profile "this work" curves.
-        all_handles = list(category_handles) + list(this_work_handles)
+        # Order: category bounds, then the halo-profile "this work" curves, then
+        # any theory/exclusion proxies the caller wants read last.
+        #
+        # compact_handles overrides the order outright. matplotlib fills a
+        # multi-column legend COLUMN-major, so which entry lands in which column
+        # is fixed by position -- a caller with two long wrapping labels needs to
+        # place them itself to stop both landing in one column and making it
+        # twice as tall as its neighbours.
+        if compact_handles is not None:
+            all_handles = list(compact_handles)
+        else:
+            all_handles = (list(category_handles) + list(this_work_handles)
+                           + list(extra_handles))
         labels = [_wrap_label(h.get_label(), width=42) for h in all_handles]
         leg = fig.legend(
             all_handles,
@@ -578,7 +578,7 @@ def finite_positive_curve(mchi, lambda_plot):
 
 
 def load_npz_boundary(path: Path):
-    """Generic loader for any boundary saved by attenuation_eft / cmb_constraints / york_chi2."""
+    """Generic loader for any boundary saved by the scan or cmb_constraints."""
     data = np.load(path, allow_pickle=True)
     out = {
         "mchi":         np.asarray(data["mchi_GeV"],        dtype=float),
@@ -592,38 +592,6 @@ def load_npz_boundary(path: Path):
         "omega_max_for_validity": npz_scalar(data, "omega_max_for_validity", None),
         "eft_kinematic_factor": npz_scalar(data, "eft_kinematic_factor", None),
     }
-    return out
-
-
-def load_totani_boundary(path: Path):
-    data = np.load(path, allow_pickle=True)
-    out = {
-        "mchi": np.asarray(data["mchi_GeV"], dtype=float),
-        "lambda_plot": np.asarray(data["lambda_plot_GeV"], dtype=float),
-        "lambda_raw": np.asarray(data["lambda_GeV"], dtype=float),
-        "paper_label": str(npz_scalar(data, "paper_label", "")),
-        "operator": str(npz_scalar(data, "operator", "")),
-        "dm_type": str(npz_scalar(data, "dm_type", "")),
-    }
-    stored_floor_flag = npz_scalar(data, "scan_floor_limited", None)
-    mchi_finite, lambda_finite, _ = finite_positive_curve(out["mchi"], out["lambda_plot"])
-    inferred_floor_flag = bool(len(lambda_finite) > 0 and np.allclose(lambda_finite, lambda_finite[0]))
-    out["scan_floor_limited"] = bool(stored_floor_flag) if stored_floor_flag is not None else inferred_floor_flag
-    out["has_finite_positive_curve"] = bool(len(mchi_finite) > 0)
-    return out
-
-
-def load_naive_boundary(path: Path):
-    data = np.load(path, allow_pickle=True)
-    out = {
-        "mchi": np.asarray(data["mchi_GeV"], dtype=float),
-        "lambda_plot": np.asarray(data["lambda_plot_GeV"], dtype=float),
-        "lambda_raw": np.asarray(data["lambda_GeV"], dtype=float),
-        "paper_label": str(npz_scalar(data, "paper_label", "")),
-        "operator": str(npz_scalar(data, "operator", "")),
-        "dm_type": str(npz_scalar(data, "dm_type", "")),
-    }
-    out["dip_depth"] = float(data["dip_depth"]) if ("dip_depth" in data.files) else None
     return out
 
 
@@ -691,16 +659,6 @@ def print_pipeline_check(operators):
     for op in operators:
         cfg = PANEL_CONFIGS[op]
         print(f"[{op}] {cfg['title']}")
-        for label, filename in (
-            ("Totani halo attenuation", cfg["totani_file"]),
-            ("Naive Fermi reference", cfg.get("naive_file")),
-        ):
-            if not filename:
-                continue
-            ok, msg = validate_boundary_file(BOUNDARY_DIR / filename)
-            ok_all = ok_all and ok
-            print(f"  {'OK' if ok else 'BAD'} {label}: {msg}")
-
         majorana_suffix = "_majorana" if cfg["majorana"] else ""
         cmb_path = BOUNDARY_DIR / f"cmb_{cfg['dm_type']}_{cfg['operator']}{majorana_suffix}_planck2018.npz"
         if cmb_path.exists():
@@ -752,15 +710,30 @@ def iter_panel_constraint_files(operator_key, cfg=None):
     return [limit["path"] for limit in limits]
 
 
+# Variant tag inserted before "_90cl" when locating boundary files, so the
+# figures can be built from an alternative generation (e.g. "_profnorm",
+# the profiled-normalisation grids) without renaming the production set.
+# Empty string = the production grids. Set by make_paper_results_figures.
+BOUNDARY_SUFFIX = ""
+
+
+# Which model kinds the data-driven overlay draws. The spectral_reshaping grids
+# are far sparser than raw_attenuation (order 100 boundary points vs 800) and
+# are absent altogether for some operators, so including them puts a curve and
+# a legend entry in some panels but not others. Restrict this to
+# ("raw_attenuation",) for a figure that should show one model kind only.
+DATA_DRIVEN_MODEL_KINDS = ("raw_attenuation", "spectral_reshaping")
+
+
 def data_driven_boundary_paths(cfg, *, halo_profile="rho2", source_tag="halo"):
     majorana_suffix = "_majorana" if cfg["majorana"] else ""
     stem = (
         f"mcmc_{halo_profile}_{source_tag}_{{kind}}_"
-        f"{cfg['dm_type']}_{cfg['operator']}{majorana_suffix}_90cl.npz"
+        f"{cfg['dm_type']}_{cfg['operator']}{majorana_suffix}{BOUNDARY_SUFFIX}_90cl.npz"
     )
     return {
-        "raw_attenuation": BOUNDARY_DIR / stem.format(kind="raw_attenuation"),
-        "spectral_reshaping": BOUNDARY_DIR / stem.format(kind="spectral_reshaping"),
+        kind: BOUNDARY_DIR / stem.format(kind=kind)
+        for kind in DATA_DRIVEN_MODEL_KINDS
     }
 
 
@@ -776,7 +749,24 @@ def data_driven_profile_style(halo_profile):
     }
 
 
+# Photon-energy ceiling [GeV] that positions the EFT kinematic-validity guide.
+# None keeps the data-derived value (max energy of the default Fermi spectrum,
+# or whatever each boundary file stores). The master figure script sets this so
+# every operator panel quotes one ceiling. Moves the DRAWN GUIDE only -- the
+# limit curves are not recomputed.
+OMEGA_MAX_OVERRIDE = None
+
+
+def _resolve_omega_max(stored) -> float:
+    """Ceiling for the validity guide: the override if set, else the stored value."""
+    if OMEGA_MAX_OVERRIDE is not None:
+        return float(OMEGA_MAX_OVERRIDE)
+    return float(stored)
+
+
 def load_default_omega_max() -> float:
+    if OMEGA_MAX_OVERRIDE is not None:
+        return float(OMEGA_MAX_OVERRIDE)
     arr = np.loadtxt(str(DEFAULT_FERMI_SPECTRUM))
     return float(np.max(np.asarray(arr[:, 0], dtype=float)))
 
@@ -816,29 +806,17 @@ def plot_panel(
     include_deconvolution_ceiling=True,
     validity_fill_color="cyan",
     validity_line_color=None,
-    unitarity_line_color=None,
 ):
     cfg = PANEL_CONFIGS[operator_key]
     x_min, x_max = 1e-10, 1e12
     y_min, y_max = 1e-6, 1e8
-    totani_path = BOUNDARY_DIR / cfg["totani_file"]
-    # The legacy tension-scan boundary is optional. For the dipole operators the
-    # legacy files were produced with direct-detection rather than real-photon
-    # amplitudes and have been withdrawn; the panel draws the corrected
-    # data-driven boundaries regardless.
-    if totani_path.exists():
-        totani = load_totani_boundary(totani_path)
-    else:
-        print(f"  [note] legacy boundary absent, skipping: {totani_path.name}")
-        totani = None
     handles = []
 
-    # ── york and cmb paths also need majorana suffix where applicable ────────
+    # ── the cmb path also needs the majorana suffix where applicable ────────
     majorana_suffix = "_majorana" if cfg["majorana"] else ""
     dm_type   = cfg["dm_type"]
     operator  = cfg["operator"]
     guide_color = validity_line_color or GUIDE_COLOR
-    unitarity_color = unitarity_line_color or guide_color
 
     # Plot EFT validity guide line
     xgrid = np.logspace(np.log10(x_min), np.log10(x_max), 800)
@@ -859,34 +837,8 @@ def plot_panel(
         if not annotate_theory_guides:
             handles.append(set_legend_group(h_kin, "theory"))
 
-    lam_unit = None
-    unit_label = None
-    if operator in ("dipole_magnetic", "dipole_electric"):
-        lam_unit = np.sqrt(16 * np.pi * xgrid)
-        unit_label = "Unitarity (dipole)"
-    elif operator in ("charge_radius", "anapole"):
-        lam_unit = (16 * np.pi * xgrid**2)**0.25
-        unit_label = "Unitarity (dim-6)"
-    elif "rayleigh" in operator:
-        lam_unit = (128 * np.pi**2 * xgrid**2)**(1 / 6)
-        unit_label = "Unitarity (Rayleigh)"
-
-    if lam_unit is not None and np.any((lam_unit >= y_min) & (lam_unit <= y_max)):
-        h_unit, = ax.loglog(
-            xgrid,
-            lam_unit,
-            color=unitarity_color,
-            lw=1.0,
-            ls=":",
-            label="_nolegend_" if annotate_theory_guides else unit_label,
-        )
-        if not annotate_theory_guides:
-            handles.append(set_legend_group(h_unit, "theory"))
-
-    # Plot physically valid region: above both the naive EFT guide and the unitarity guide.
+    # Shade the EFT-valid region above the kinematic wedge, Eq. (IV.18).
     valid_floor = np.array(lam_kin, copy=True)
-    if lam_unit is not None:
-        valid_floor = np.maximum(valid_floor, lam_unit)
     valid_mask = np.isfinite(valid_floor) & (valid_floor < y_max) & (valid_floor > y_min)
     if np.any(valid_mask):
         ax.fill_between(
@@ -909,28 +861,6 @@ def plot_panel(
                 va="top",
                 transform=ax.transAxes,
             )
-    if annotate_theory_guides and lam_unit is not None:
-        unit_mask = np.isfinite(lam_unit) & (lam_unit > y_min) & (lam_unit < y_max)
-        if np.any(unit_mask):
-            x_unit = 2e7 if operator in ("dipole_magnetic", "dipole_electric") else 2e8
-            x_unit = float(np.clip(x_unit, np.min(xgrid[unit_mask]), np.max(xgrid[unit_mask])))
-            y_unit = 10.0 ** np.interp(
-                np.log10(x_unit),
-                np.log10(xgrid[unit_mask]),
-                np.log10(lam_unit[unit_mask]),
-            )
-            ax.text(
-                x_unit*80,
-                y_unit*15,
-                "Unitarity",
-                color=unitarity_color,
-                fontsize=7.0 if tick_labelsize is not None else 9.0,
-                rotation=40,
-                rotation_mode="anchor",
-                ha="center",
-                va="bottom",
-            )
-
     # Plot literature constraints
     for limit in get_operator_limits(operator_key, include_generated=False):
         mchi = np.asarray(limit["data"]["mchi_GeV"], dtype=float)
@@ -953,21 +883,7 @@ def plot_panel(
             group = "cosmology" if limit["constraint_type"] == "thermal_relic" else limit["constraint_type"]
             handles.append(set_legend_group(h, group))
 
-    # Plot Totani boundary
-    # totani_label = "Digitized Totani attenuation (legacy)"
-    # if totani["scan_floor_limited"]:
-    #     totani_label += " [scan-floor limited]"
-    # mchi_totani, lambda_totani, _ = finite_positive_curve(totani["mchi"], totani["lambda_plot"])
-    # h_totani, = ax.loglog(
-    #     mchi_totani,
-    #     lambda_totani,
-    #     color=THIS_WORK_ALT,
-    #     lw=2.5,
-    #     label=totani_label,
-    # )
-    # handles.append(h_totani)
-
-    # Data-driven limits from Totani_paper_check MCMC posteriors, if present.
+    # Data-driven limits from the halo/IGRB scans in constraint_boundaries/.
     data_driven_specs = {
         "raw_attenuation": (
             "scattering attenuation",
@@ -994,7 +910,7 @@ def plot_panel(
                 and curve.get("omega_max_for_validity") is not None
                 and curve.get("eft_kinematic_factor") is not None
             ):
-                omega_max = float(curve["omega_max_for_validity"])
+                omega_max = _resolve_omega_max(curve["omega_max_for_validity"])
                 eft_factor = float(curve["eft_kinematic_factor"])
                 q2_max = np.maximum(
                     xgrid**2 + 2.0 * xgrid * omega_max,
@@ -1030,22 +946,6 @@ def plot_panel(
                 label=label,
             )
             handles.append(set_legend_group(h_data, "this_work"))
-
-    # --- York chi-squared constraint (10-deg GC circle, 50-500 GeV) ---
-    york_path = BOUNDARY_DIR / f"york_{dm_type}_{operator}{majorana_suffix}_90cl.npz"
-    if york_path.exists():
-        york = load_npz_boundary(york_path)
-        mchi_york, lambda_york, _ = finite_positive_curve(york["mchi"], york["lambda_plot"])
-        if len(mchi_york) > 0:
-            h_york, = ax.loglog(
-                mchi_york,
-                lambda_york,
-                color=THIS_WORK_DEEP,
-                lw=2.2,
-                ls="-.",
-                label="York GC spectrum (this work, 90% CL)",
-            )
-            handles.append(set_legend_group(h_york, "this_work"))
 
     # --- CMB power spectrum constraint (Planck 2018) ---
     cmb_path = BOUNDARY_DIR / f"cmb_{dm_type}_{operator}{majorana_suffix}_planck2018.npz"
@@ -1122,13 +1022,14 @@ def plot_panel(
     ax.set_title(title_override or cfg["title"], fontsize=title_fontsize)
     if not annotate_theory_guides:
         panel_label = PAPER_LABEL_OVERRIDES.get(
-            operator, totani["paper_label"] if totani is not None else operator)
+            operator,
+            _operator_metadata(cfg["dm_type"], cfg["operator"])["paper_label"])
         ax.text(0.03, 0.93, panel_label, transform=ax.transAxes, fontsize=panel_label_fontsize, va="top")
     ax.set_xlim(x_min, x_max)
     ax.set_ylim(y_min, y_max)
     ax.grid(True, which="both", alpha=0.22)
     ax.set_xlabel(r"$m_{\chi}$ [GeV]", fontsize=axis_label_fontsize)
-    ax.set_ylabel(r"$\Lambda/C^{1/n}$ [GeV]", fontsize=axis_label_fontsize)
+    ax.set_ylabel(r"$\Lambda/(c^{1/n} f_{\rm scat}^{1/p})$ [GeV]", fontsize=axis_label_fontsize)
     if tick_labelsize is not None:
         ax.tick_params(axis="both", which="both", labelsize=tick_labelsize)
 
@@ -1147,14 +1048,14 @@ def main():
     parser.add_argument(
         "--outfile",
         default="totani_operator_overlays",
-        help="Output basename inside Totani_Scattering/plots/",
+        help="Output basename inside plots/",
     )
     parser.add_argument(
         "--data-driven-profiles",
         nargs="+",
         default=None,
         help=(
-            "MCMC halo profiles to overlay from Totani_Scattering/constraint_boundaries. "
+            "MCMC halo profiles to overlay from constraint_boundaries/. "
             "Use e.g. rho2 global_rho2 global_rho2.5 to compare Totani and global morphology constraints."
         ),
     )
@@ -1194,7 +1095,7 @@ def main():
                         help="Line width for set_paper_style. Overrides internal default (1.6).")
     args = parser.parse_args()
     if args.style:
-        os.environ["TRINITY_PLOT_STYLE"] = args.style
+        os.environ["EFT_PLOT_STYLE"] = args.style
     if args.operators is None:
         args.operators = PAPER_SUMMARY_OPERATORS if args.paper_summary else DEFAULT_OPERATORS
     if args.data_driven_profiles is None:

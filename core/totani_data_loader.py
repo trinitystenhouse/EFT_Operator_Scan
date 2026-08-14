@@ -1,17 +1,13 @@
 """
 totani_data_loader.py
 =====================
-Load the Totani halo-component spectrum directly from the MCMC posterior
-files produced by Totani_paper_check.
+Load the Galactic-centre halo spectrum from the pixel-level MCMC posterior of
+the companion analysis (arXiv:2607.08552). Each npz stores the full posterior
+over template coefficients f for one energy bin, fitted to the Fermi-LAT
+Pass 8 counts through a binned Poisson likelihood.
 
-This replaces the hard-coded PHI_TOTANI / SIGMA_TOTANI arrays in
-attenuation_eft.py, which are coarse read-offs from Totani's Figure 8.
-The MCMC files are the ground truth: each npz stores the full posterior
-over template coefficients f for one energy bin, fitted to the actual
-Fermi-LAT counts via a binned Poisson likelihood.
-
-Physical convention (from make_totani_fig8.py)
-----------------------------------------------
+Physical convention
+-------------------
 The NFW halo template is pole-normalised:
 
     mu_nfw[k, pixel] = (iso_target_e2 / E_ctr[k]^2)
@@ -25,25 +21,14 @@ so at the galactic pole J/J_pole = 1, and at template coefficient f:
 This is an exact algebraic consequence of the normalisation choice and
 requires no pixel data outside the ROI.
 
-Central value: posterior median f_p50 (guarantees p16 <= p50 <= p84,
-avoiding negative errorbars near the positivity boundary — matches
-Totani's Figure 8 convention).
+Central value: posterior median f_p50, which guarantees p16 <= p50 <= p84 and so
+avoids negative error bars near the positivity boundary.
 
 Public API
 ----------
 load_halo_spectrum(mcmc_dir, nfw_label=None)
     -> HaloSpectrum dataclass with E_bins_MeV, E_bins_GeV, phi, phi_p16,
        phi_p84, phi_err_sym, iso_target_e2 per bin.
-
-load_component_spectra(mcmc_dir, labels=None)
-    -> ComponentSpectra dataclass with posterior spectra for every requested
-       MCMC template label. These are useful inputs for a multi-component
-       scattering transfer, but their physical geometry still has to be chosen
-       component by component.
-
-load_halo_spectrum_rho25(...)  rho^2.5, disk excluded
-load_halo_spectrum_rho2(...)   rho^2,   disk excluded  (Totani preferred)
-load_halo_spectrum_rho1(...)   rho^1,   disk excluded
 
 available_mcmc_dirs()
     -> dict mapping profile name -> absolute path, for whichever dirs exist.
@@ -59,109 +44,32 @@ from typing import Optional
 import numpy as np
 
 # ---------------------------------------------------------------------------
-# Default paths — mirror the REPO_DIR logic used throughout Totani_paper_check
+# Default paths
 # ---------------------------------------------------------------------------
 
 _HERE = Path(__file__).resolve().parent
-_TS_DIR = _HERE.parent
-_REPO_DIR = Path(
-    os.environ.get(
-        "REPO_PATH",
-        str(_TS_DIR.parent),
+
+# Root of the companion release (arXiv:2607.08552, doi:10.5281/zenodo.21280725)
+# that ships the pixel-level halo posteriors. Point HALO_POSTERIOR_ROOT at the
+# directory holding the pixelwise_mcmc_results_* subdirectories, or REPO_PATH at
+# a tree laid out as <REPO_PATH>/halo_posterior/mcmc/fit_results/pixelwise_mcmc/.
+_ENV_ROOT = os.environ.get("HALO_POSTERIOR_ROOT")
+if _ENV_ROOT:
+    _PIXEL_ROOT = Path(_ENV_ROOT)
+else:
+    _PIXEL_ROOT = (
+        Path(os.environ.get("REPO_PATH", str(_HERE.parent.parent)))
+        / "halo_posterior" / "mcmc" / "fit_results" / "pixelwise_mcmc"
     )
-)
-_PAPER_CHECK = _REPO_DIR / "Totani_paper_check" / "mcmc"
 
-# Post-reorganisation locations:
-#   * global (single-likelihood) fits live under Totani_reanalysis/mcmc/fit_results/quick_global/
-#   * pixel-level fits live under  Totani_reanalysis/mcmc/fit_results/pixelwise_mcmc/
-# Keep _PAPER_CHECK as a fallback so checkouts predating the move still resolve.
-_REANALYSIS_QGLOBAL = _REPO_DIR / "Totani_reanalysis" / "mcmc" / "fit_results" / "quick_global"
-_REANALYSIS_PIXEL   = _REPO_DIR / "Totani_reanalysis" / "mcmc" / "fit_results" / "pixelwise_mcmc"
-
-
-def _first_existing_dir(*paths: Path) -> Path:
-    """Return the first existing path, or the first candidate if none exist yet."""
-    for path in paths:
-        if Path(path).exists():
-            return Path(path)
-    return Path(paths[0])
-
-
+# The three halo posteriors the paper uses: the rho^2 fit that carries the
+# limits (Sec. V A), the rho^2.5 stress test drawn as the second contour of
+# Fig. 3, and the disk-included refit quoted as the systematic envelope
+# (Sec. V B, "weakens the exclusion by at most 0.040 dex").
 _MCMC_DIRS = {
-    "rho2.5": _first_existing_dir(_PAPER_CHECK / "mcmc_results_fig5", _PAPER_CHECK / "mcmc_results_fig5_10deg"),
-    "rho2":   _first_existing_dir(_PAPER_CHECK / "mcmc_results_fig6", _PAPER_CHECK / "mcmc_results_fig6_10deg"),
-    "rho1":   _first_existing_dir(_PAPER_CHECK / "mcmc_results_fig7", _PAPER_CHECK / "mcmc_results_fig7_10deg"),
-    "fig2_3": _first_existing_dir(_PAPER_CHECK / "mcmc_results_fig2_3", _PAPER_CHECK / "mcmc_results_fig2_3_10deg"),
-    "fig4":   _first_existing_dir(_PAPER_CHECK / "mcmc_results_fig4", _PAPER_CHECK / "mcmc_results_fig4_10deg"),
-    # Global (single-likelihood) fits — disk excluded
-    "global_rho2.5": _first_existing_dir(
-        _REANALYSIS_QGLOBAL / "global_fit_results_fig5",
-        _PAPER_CHECK       / "global_fit_results_fig5",
-    ),
-    "global_rho2":   _first_existing_dir(
-        _REANALYSIS_QGLOBAL / "global_fit_results_fig6",
-        _PAPER_CHECK       / "global_fit_results_fig6",
-    ),
-    "global_rho1":   _first_existing_dir(
-        _REANALYSIS_QGLOBAL / "global_fit_results_fig7",
-        _PAPER_CHECK       / "global_fit_results_fig7",
-    ),
-    "global_fig2_3": _first_existing_dir(
-        _REANALYSIS_QGLOBAL / "global_fit_results_fig2_3",
-        _PAPER_CHECK       / "global_fit_results_fig2_3",
-    ),
-    "global_fig4":   _first_existing_dir(
-        _REANALYSIS_QGLOBAL / "global_fit_results_fig4",
-        _PAPER_CHECK       / "global_fit_results_fig4",
-    ),
-    # Global fits — disk INCLUDED (companion-paper systematics variant)
-    "global_rho2.5_w_disk": _first_existing_dir(
-        _REANALYSIS_QGLOBAL / "global_fit_results_fig5_w_disk",
-        _PAPER_CHECK       / "global_fit_results_fig5_w_disk",
-    ),
-    "global_rho2_w_disk":   _first_existing_dir(
-        _REANALYSIS_QGLOBAL / "global_fit_results_fig6_w_disk",
-        _PAPER_CHECK       / "global_fit_results_fig6_w_disk",
-    ),
-    "global_rho1_w_disk":   _first_existing_dir(
-        _REANALYSIS_QGLOBAL / "global_fit_results_fig7_w_disk",
-        _PAPER_CHECK       / "global_fit_results_fig7_w_disk",
-    ),
-    # Pixel-level fits — disk excluded (the PRIMARY profile for the EFT scattering paper)
-    "pixelwise_global_rho2.5": _first_existing_dir(
-        _REANALYSIS_PIXEL / "pixelwise_mcmc_results_fig5",
-        _PAPER_CHECK      / "pixelwise_mcmc_results_fig5",
-    ),
-    "pixelwise_global_rho2":   _first_existing_dir(
-        _REANALYSIS_PIXEL / "pixelwise_mcmc_results_fig6",
-        _PAPER_CHECK      / "pixelwise_mcmc_results_fig6",
-    ),
-    "pixelwise_global_rho1":   _first_existing_dir(
-        _REANALYSIS_PIXEL / "pixelwise_mcmc_results_fig7",
-        _PAPER_CHECK      / "pixelwise_mcmc_results_fig7",
-    ),
-    "pixelwise_global_fig2_3": _first_existing_dir(
-        _REANALYSIS_PIXEL / "pixelwise_mcmc_results_fig2_3",
-        _PAPER_CHECK      / "pixelwise_mcmc_results_fig2_3",
-    ),
-    "pixelwise_global_fig4":   _first_existing_dir(
-        _REANALYSIS_PIXEL / "pixelwise_mcmc_results_fig4",
-        _PAPER_CHECK      / "pixelwise_mcmc_results_fig4",
-    ),
-    # Pixel-level fits — disk INCLUDED (systematics variant)
-    "pixelwise_global_rho2.5_w_disk": _first_existing_dir(
-        _REANALYSIS_PIXEL / "pixelwise_mcmc_results_fig5_w_disk",
-        _PAPER_CHECK      / "pixelwise_mcmc_results_fig5_w_disk",
-    ),
-    "pixelwise_global_rho2_w_disk":   _first_existing_dir(
-        _REANALYSIS_PIXEL / "pixelwise_mcmc_results_fig6_w_disk",
-        _PAPER_CHECK      / "pixelwise_mcmc_results_fig6_w_disk",
-    ),
-    "pixelwise_global_rho1_w_disk":   _first_existing_dir(
-        _REANALYSIS_PIXEL / "pixelwise_mcmc_results_fig7_w_disk",
-        _PAPER_CHECK      / "pixelwise_mcmc_results_fig7_w_disk",
-    ),
+    "pixelwise_global_rho2":        _PIXEL_ROOT / "pixelwise_mcmc_results_fig6",
+    "pixelwise_global_rho2.5":      _PIXEL_ROOT / "pixelwise_mcmc_results_fig5",
+    "pixelwise_global_rho2_w_disk": _PIXEL_ROOT / "pixelwise_mcmc_results_fig6_w_disk",
 }
 
 _ISO_TARGET_E2_DEFAULT = 1e-4  # MeV cm^-2 s^-1 sr^-1 — fallback if not in npz
@@ -293,37 +201,6 @@ class HaloSpectrum:
         return "\n".join(lines)
 
 
-@dataclass
-class ComponentSpectra:
-    """
-    Posterior spectra for one or more MCMC template components.
-
-    The flux conversion mirrors HaloSpectrum: coefficient f times
-    iso_target_e2 for each energy bin. For the NFW template this has the clean
-    pole-normalised meaning described above. For other templates it should be
-    treated as the fitted component-amplitude spectrum in the same plotting
-    convention unless its template normalisation has been checked separately.
-    """
-
-    E_bins_MeV: np.ndarray
-    E_bins_GeV: np.ndarray
-    labels: list[str]
-    phi: dict[str, np.ndarray]
-    phi_p16: dict[str, np.ndarray]
-    phi_p84: dict[str, np.ndarray]
-    phi_err_sym: dict[str, np.ndarray]
-    iso_target_e2: np.ndarray
-    mcmc_dir: str
-
-    @property
-    def finite_mask(self) -> np.ndarray:
-        masks = [np.isfinite(self.E_bins_GeV)]
-        for label in self.labels:
-            masks.append(np.isfinite(self.phi[label]))
-            masks.append(np.isfinite(self.phi_err_sym[label]))
-        return np.logical_and.reduce(masks)
-
-
 # ---------------------------------------------------------------------------
 # Core loader
 # ---------------------------------------------------------------------------
@@ -332,12 +209,11 @@ def load_halo_spectrum(
     mcmc_dir: str | Path,
     *,
     nfw_label: Optional[str] = None,
-    counts_path: Optional[str | Path] = None,
     n_energy_bins: Optional[int] = None,
     central_stat: str = "f_p50",
 ) -> HaloSpectrum:
     """
-    Load the Totani NFW halo-component spectrum from MCMC npz files.
+    Load the NFW halo-component spectrum from the MCMC npz files.
 
     Parameters
     ----------
@@ -347,10 +223,6 @@ def load_halo_spectrum(
         Exact NFW template label to look for in each npz. If None (default),
         the loader uses the first template whose name contains 'nfw'
         (case-insensitive). Raises if zero or more than one are found.
-    counts_path : str or Path, optional
-        Path to the counts CCUBE FITS file, used to read the energy axis
-        (Ectr_mev per bin). If None, the energy axis is inferred from the
-        npz Ectr_mev fields stored by run_mcmc.py.
     n_energy_bins : int, optional
         Expected number of energy bins. If provided and the loader finds fewer
         or more, it warns but continues. Inferred automatically if None.
@@ -375,7 +247,8 @@ def load_halo_spectrum(
     if not mcmc_dir.exists():
         raise FileNotFoundError(
             f"MCMC results directory not found: {mcmc_dir}\n"
-            "Run the Totani_paper_check pipeline first, or set REPO_PATH correctly."
+            "Point HALO_POSTERIOR_ROOT at the companion release "
+            "(doi:10.5281/zenodo.21280725); see README.md."
         )
 
     # Discover all result files
@@ -393,22 +266,8 @@ def load_halo_spectrum(
             stacklevel=2,
         )
 
-    # Optionally load the energy axis from the counts FITS
+    # Energy axis comes from the Ectr_mev field stored in each npz.
     E_bins_MeV = np.full(nE, np.nan)
-    if counts_path is not None:
-        try:
-            from totani_helpers.totani_io import read_counts_and_ebounds
-            import sys
-            sys.path.insert(0, str(_REPO_DIR / "Totani_paper_check"))
-            _, _, _, _, ectr, _ = read_counts_and_ebounds(str(counts_path))
-            E_bins_MeV[:min(nE, len(ectr))] = ectr[:nE]
-        except Exception as exc:
-            import warnings
-            warnings.warn(
-                f"Could not load energy axis from {counts_path}: {exc}. "
-                "Falling back to Ectr_mev stored in npz files.",
-                stacklevel=2,
-            )
 
     # Allocate output arrays
     f_p50   = np.full(nE, np.nan)
@@ -504,114 +363,6 @@ def load_halo_spectrum(
     )
 
 
-def load_component_spectra(
-    mcmc_dir: str | Path,
-    *,
-    labels: Optional[list[str]] = None,
-    counts_path: Optional[str | Path] = None,
-    central_stat: str = "f_p50",
-) -> ComponentSpectra:
-    """
-    Load fitted spectra for all requested MCMC template components.
-
-    This is a setup helper for multi-component scattering calculations. It
-    exposes the spectra needed to build PhotonTransferComponent objects, but it
-    deliberately does not assign scattering geometries. A disk foreground, an
-    isotropic component, and an NFW halo component should not silently inherit
-    the same optical-depth average.
-    """
-    mcmc_dir = Path(mcmc_dir)
-    if not mcmc_dir.exists():
-        raise FileNotFoundError(f"MCMC results directory not found: {mcmc_dir}")
-
-    npz_files = sorted(mcmc_dir.glob("mcmc_results_k*.npz"))
-    if not npz_files:
-        raise FileNotFoundError(f"No mcmc_results_k*.npz files found in {mcmc_dir}")
-
-    nE = len(npz_files)
-    E_bins_MeV = np.full(nE, np.nan)
-    if counts_path is not None:
-        try:
-            from totani_helpers.totani_io import read_counts_and_ebounds
-            import sys
-            sys.path.insert(0, str(_REPO_DIR / "Totani_paper_check"))
-            _, _, _, _, ectr, _ = read_counts_and_ebounds(str(counts_path))
-            E_bins_MeV[:min(nE, len(ectr))] = ectr[:nE]
-        except Exception as exc:
-            import warnings
-            warnings.warn(
-                f"Could not load energy axis from {counts_path}: {exc}. "
-                "Falling back to Ectr_mev stored in npz files.",
-                stacklevel=2,
-            )
-
-    first = np.load(npz_files[0], allow_pickle=True)
-    available = [str(x) for x in np.atleast_1d(first["labels"]).tolist()]
-    selected = available if labels is None else [str(x) for x in labels]
-    missing = [lab for lab in selected if lab not in available]
-    if missing:
-        raise KeyError(
-            f"Requested component labels not found in {npz_files[0]}: {missing}. "
-            f"Available labels: {available}"
-        )
-
-    central_key = {"f_p50": "f_p50", "f_ml": "f_ml"}.get(central_stat, "f_p50")
-    f_mid = {lab: np.full(nE, np.nan) for lab in selected}
-    f_p16 = {lab: np.full(nE, np.nan) for lab in selected}
-    f_p84 = {lab: np.full(nE, np.nan) for lab in selected}
-    iso_e2 = np.full(nE, _ISO_TARGET_E2_DEFAULT)
-
-    for path in npz_files:
-        try:
-            k = int(path.stem.split("_k")[-1])
-        except ValueError:
-            continue
-        if k >= nE:
-            continue
-
-        npz = np.load(path, allow_pickle=True)
-        if not np.isfinite(E_bins_MeV[k]) and "Ectr_mev" in npz:
-            E_bins_MeV[k] = float(npz["Ectr_mev"])
-        if "iso_target_e2" in npz:
-            val = npz["iso_target_e2"]
-            v = float(val) if val.ndim == 0 else float(val.flat[0])
-            if np.isfinite(v) and v > 0.0:
-                iso_e2[k] = v
-
-        path_labels = [str(x) for x in np.atleast_1d(npz["labels"]).tolist()]
-        if central_key not in npz or "f_p16" not in npz or "f_p84" not in npz:
-            continue
-
-        for lab in selected:
-            if lab not in path_labels:
-                continue
-            idx = path_labels.index(lab)
-            f_mid[lab][k] = float(np.atleast_1d(npz[central_key])[idx])
-            f_p16[lab][k] = float(np.atleast_1d(npz["f_p16"])[idx])
-            f_p84[lab][k] = float(np.atleast_1d(npz["f_p84"])[idx])
-
-    phi = {lab: f_mid[lab] * iso_e2 for lab in selected}
-    phi16 = {lab: f_p16[lab] * iso_e2 for lab in selected}
-    phi84 = {lab: f_p84[lab] * iso_e2 for lab in selected}
-    err = {
-        lab: 0.5 * (np.maximum(phi[lab] - phi16[lab], 0.0)
-                    + np.maximum(phi84[lab] - phi[lab], 0.0))
-        for lab in selected
-    }
-
-    return ComponentSpectra(
-        E_bins_MeV=E_bins_MeV,
-        E_bins_GeV=E_bins_MeV / 1000.0,
-        labels=selected,
-        phi=phi,
-        phi_p16=phi16,
-        phi_p84=phi84,
-        phi_err_sym=err,
-        iso_target_e2=iso_e2,
-        mcmc_dir=str(mcmc_dir),
-    )
-
-
 def _find_nfw_index(
     labels: list[str],
     requested: Optional[str],
@@ -643,51 +394,6 @@ def _find_nfw_index(
 
 
 # ---------------------------------------------------------------------------
-# Named convenience loaders
-# ---------------------------------------------------------------------------
-
-def load_halo_spectrum_rho25(
-    nfw_label: Optional[str] = None,
-    counts_path: Optional[str | Path] = None,
-) -> HaloSpectrum:
-    """NFW rho^2.5, disk excluded (Totani Fig. 5 / Fig. 8 top panel)."""
-    return load_halo_spectrum(
-        _MCMC_DIRS["rho2.5"],
-        nfw_label=nfw_label,
-        counts_path=counts_path,
-    )
-
-
-def load_halo_spectrum_rho2(
-    nfw_label: Optional[str] = None,
-    counts_path: Optional[str | Path] = None,
-) -> HaloSpectrum:
-    """
-    NFW rho^2, disk excluded.
-
-    This is Totani's primary result and the one to use for the
-    annihilation + scattering parameter extraction.
-    """
-    return load_halo_spectrum(
-        _MCMC_DIRS["rho2"],
-        nfw_label=nfw_label,
-        counts_path=counts_path,
-    )
-
-
-def load_halo_spectrum_rho1(
-    nfw_label: Optional[str] = None,
-    counts_path: Optional[str | Path] = None,
-) -> HaloSpectrum:
-    """NFW rho^1, disk excluded (Totani Fig. 7 / Fig. 8 bottom panel)."""
-    return load_halo_spectrum(
-        _MCMC_DIRS["rho1"],
-        nfw_label=nfw_label,
-        counts_path=counts_path,
-    )
-
-
-# ---------------------------------------------------------------------------
 # Utility: list available MCMC directories
 # ---------------------------------------------------------------------------
 
@@ -701,51 +407,7 @@ def available_mcmc_dirs() -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Drop-in replacement arrays for attenuation_eft.py / fit_totani_dm_scattering.py
-# ---------------------------------------------------------------------------
-
-def get_phi_totani_from_mcmc(
-    profile: str = "rho2",
-    nfw_label: Optional[str] = None,
-    counts_path: Optional[str | Path] = None,
-    err_mode: str = "sym",
-    positive_only: bool = False,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Return (E_bins_GeV, phi, sigma) as drop-in replacements for the hardcoded
-    E_BINS_GEV, PHI_TOTANI, SIGMA_TOTANI arrays in attenuation_eft.py.
-
-    Parameters
-    ----------
-    profile : str
-        One of 'rho2.5', 'rho2' (default), 'rho1'.
-    nfw_label : str, optional
-        Explicit NFW template label. If None, inferred automatically.
-    counts_path : str or Path, optional
-        Path to the counts CCUBE FITS for the energy axis.
-    err_mode : str
-        Error convention: 'sym' (default), 'lo', 'hi', 'max'.
-    positive_only : bool
-        If True, return only bins where phi > 0.
-
-    Returns
-    -------
-    E_bins_GeV : (nE,)  [GeV]
-    phi        : (nE,)  [MeV cm^-2 s^-1 sr^-1]
-    sigma      : (nE,)  [MeV cm^-2 s^-1 sr^-1]
-    """
-    mcmc_dir = _MCMC_DIRS.get(profile)
-    if mcmc_dir is None:
-        raise ValueError(
-            f"Unknown profile {profile!r}. "
-            f"Available: {list(_MCMC_DIRS.keys())}"
-        )
-    hs = load_halo_spectrum(mcmc_dir, nfw_label=nfw_label, counts_path=counts_path)
-    return hs.to_fit_arrays(positive_only=positive_only, err_mode=err_mode)
-
-
-# ---------------------------------------------------------------------------
-# Quick sanity check (run as script)
+# Quick sanity check (run as a script)
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
@@ -753,9 +415,9 @@ if __name__ == "__main__":
     for name, path in available_mcmc_dirs().items():
         print(f"  {name}: {path}")
 
-    print("\nLoading Fig. 6 (rho^2, primary Totani result)...")
+    print("\nLoading the rho^2 disk-excluded posterior...")
     try:
-        hs = load_halo_spectrum_rho2()
+        hs = load_halo_spectrum(_MCMC_DIRS["pixelwise_global_rho2"])
         print(hs.summary())
         print("\nFirst 5 bins:")
         for k in range(min(5, len(hs.E_bins_GeV))):
@@ -769,4 +431,4 @@ if __name__ == "__main__":
               f"E in [{E[0]:.2f}, {E[-1]:.2f}] GeV")
     except FileNotFoundError as e:
         print(f"  Could not load: {e}")
-        print("  Run the Totani_paper_check MCMC pipeline first.")
+        print("  Set HALO_POSTERIOR_ROOT; see README.md.")

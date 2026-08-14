@@ -144,7 +144,6 @@ STYLE_HINTS = {
     "hambye": ("XENON1T anapole recast", "#C9A400", "-", "direct_detection"),
     "ibarra2024_lz": ("LZ", "#FFB347", "-.", "direct_detection"),
     "lz2022": ("LZ", "#FFB347", "-.", "direct_detection"),
-    "lz_magdipole": ("LZ", "#FFB347", "-.", "direct_detection"),
     "lz_eldipole": ("LZ", "#FFB347", (0, (7, 2, 1.5, 2)), "direct_detection"),
     "xlzd200ty": ("XLZD 200 ty", "#FFE68A", (0, (2, 2)), "direct_detection"),
     "fortin_tait": ("Fortin & Tait", "#C9A400", (0, (3, 1)), "direct_detection"),
@@ -376,17 +375,56 @@ def _generated_limit_entry(suffix: str, operator_key: str, operator_spec: dict, 
     }
 
 
+# Header markers that mean a curve is not a real digitisation of a published
+# figure. Any file whose header carries one of these is refused by the loader
+# rather than silently plotted. Two such files (lz_magdipole.txt,
+# fermilat_hess_magdipole.txt) reached a published figure before this guard
+# existed, so the check is deliberately loud and cannot be switched off.
+#
+# The fifteen files it refused have since been deleted from the release rather
+# than shipped inert: a reader browsing the archive would have found headers
+# admitting the numbers were invented, without necessarily also finding this
+# guard. The guard stays because it protects against the next such file, not
+# because anything currently trips it.
+_UNTRUSTWORTHY_MARKERS = (
+    "AI-GENERATED",
+    "NOT DIGITIS",
+    "CITATION SUSPECT",
+    "PLACEHOLDER",
+    "SYNTHETIC",
+    "FABRICAT",
+)
+
+_REFUSED_REPORTED = set()
+
+
+def _header_is_untrustworthy(path):
+    """True if the file's own comment header admits it is not a digitisation."""
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            head = "".join(line for line in fh if line.lstrip().startswith("#")).upper()
+    except OSError:
+        return False
+    return any(marker in head for marker in _UNTRUSTWORTHY_MARKERS)
+
+
 def _operator_text_files(spec: dict):
     paths = []
     for folder_name in spec["folders"]:
         folder = BASE_DIR / folder_name
         if not folder.exists():
             continue
-        paths.extend(
-            p
-            for p in sorted(folder.glob("*.txt"))
-            if p.name.lower() != "readme.txt"
-        )
+        for p in sorted(folder.glob("*.txt")):
+            if p.name.lower() == "readme.txt":
+                continue
+            if _header_is_untrustworthy(p):
+                key = str(p)
+                if key not in _REFUSED_REPORTED:
+                    _REFUSED_REPORTED.add(key)
+                    print(f"[constraints_data] REFUSED (not a digitisation): "
+                          f"{p.parent.name}/{p.name}")
+                continue
+            paths.append(p)
 
     unique_paths = sorted({p.resolve(): p for p in paths}.values(), key=lambda p: str(p))
     if spec["fermion_type"] != "majorana":

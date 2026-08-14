@@ -1,8 +1,4 @@
 import numpy as np
-from scipy import integrate
-import matplotlib.pyplot as plt
-from matplotlib.colors import TwoSlopeNorm
-from scipy.interpolate import interp1d
 from pathlib import Path
 import sys
 
@@ -12,7 +8,6 @@ if str(_REPO_ROOT) not in sys.path:
 
 from core.eft_validity import (
     eft_kinematic_lambda_curve as _shared_eft_kinematic_lambda_curve,
-    unitarity_lambda_curve as _shared_unitarity_lambda_curve,
 )
 # Canonical lab-frame kinematics live in cross_sections.py; imported rather
 # than duplicated here.
@@ -21,8 +16,6 @@ from core.cross_sections import (
     get_t_lab_DMrest,
     lab_recoil_ratio,
 )
-from helpers.trinity_plotting import current_savefig_kwargs, set_plot_style
-
 if not hasattr(np, "trapezoid"):
     np.trapezoid = np.trapz
 
@@ -46,12 +39,8 @@ r_sun_cm  = r_sun     * KPC_TO_CM               # cm
 r_vir_cm  = r_vir     * KPC_TO_CM               # cm
 
 # ---------------------------------------------------------------------------
-# Totani energy bins and halo spectrum — loaded from MCMC posteriors
-# (Totani_paper_check/mcmc/mcmc_results_fig6, NFW-rho^2, disk excluded)
-#
-# These replace the previous hand-digitised read-offs from Totani Fig. 8,
-# which had incorrect bin centres (29.5 GeV instead of 20.757 GeV for the
-# peak bin) and coarse flux values. The MCMC posteriors are the ground truth.
+# Halo energy bins and spectrum, read from the pixel-level MCMC posterior
+# (pixelwise_mcmc_results_fig6, NFW rho^2, disk excluded).
 #
 # E_BINS_GEV  : 13 bin centres from Ectr_mev stored in mcmc_results_k*.npz
 # PHI_TOTANI  : f_nfw_p50 * iso_target_e2  [MeV cm^-2 s^-1 sr^-1]
@@ -61,45 +50,32 @@ r_vir_cm  = r_vir     * KPC_TO_CM               # cm
 # ---------------------------------------------------------------------------
 
 def _load_totani_mcmc_arrays(mcmc_dir=None):
-    """Load E_bins, phi, sigma from MCMC posteriors. Falls back to legacy
-    hard-coded values if the mcmc directory cannot be found.
+    """Load E_bins, phi, sigma from the pixel-level halo posterior.
 
     Parameters
     ----------
     mcmc_dir : Path or str, optional
-        Directory containing mcmc_results_k*.npz files.  If None, the default
-        rho2 MCMC path is used (with legacy fallback).
+        Directory containing mcmc_results_k*.npz files. If None, the rho^2
+        entry of totani_data_loader._MCMC_DIRS is used, which resolves through
+        HALO_POSTERIOR_ROOT / REPO_PATH; see README.md.
     """
-    import sys
     import os
     if mcmc_dir is None:
-        # Environment override: lets tests / other machines point at (possibly
-        # synthetic) posteriors without editing this file.
+        # Environment override: lets tests point at (possibly synthetic)
+        # posteriors without editing this file.
         mcmc_dir = os.environ.get("TOTANI_MCMC_DIR") or None
     if mcmc_dir is not None:
         _pc_dir = Path(mcmc_dir)
     else:
-        _ts_dir = Path(__file__).resolve().parent.parent
-        _mcmc_base = _ts_dir.parent / "Totani_paper_check" / "mcmc"
-        _candidates = [
-            _mcmc_base / "mcmc_results_fig6",
-            _mcmc_base / "mcmc_results_fig6_10deg",
-            _mcmc_base / "global_fit_results_fig6",
-            _mcmc_base / "global_fit_results_fig5",
-        ]
-        _pc_dir = next(
-            (p for p in _candidates if p.exists() and any(p.glob("mcmc_results_k*.npz"))),
-            _candidates[0],
-        )
+        from core.totani_data_loader import _MCMC_DIRS
+        _pc_dir = _MCMC_DIRS["pixelwise_global_rho2"]
     if not _pc_dir.exists() or not any(_pc_dir.glob("mcmc_results_k*.npz")):
-        # Fail loudly rather than silently returning legacy hard-coded arrays
-        # with KNOWN-WRONG bin centres (29.5 vs 20.757 GeV for the peak bin).
-        # A misconfigured run must not silently produce wrong physics.
         raise FileNotFoundError(
-            f"Totani MCMC results not found at {_pc_dir} "
-            "(expected mcmc_results_k*.npz). Run the Totani_paper_check pipeline "
-            "to generate them, or pass an explicit mcmc_dir. The legacy hard-coded "
-            "fallback was removed because its bin centres were incorrect."
+            f"Halo posterior not found at {_pc_dir} (expected "
+            "mcmc_results_k*.npz). It ships with the companion release, "
+            "doi:10.5281/zenodo.21280725; point HALO_POSTERIOR_ROOT at it, or "
+            "pass an explicit mcmc_dir. Only the exclusion-grid scan needs it "
+            "-- the figure scripts read the committed grids instead."
         )
 
     iso_e2 = 1e-4   # MeV cm^-2 s^-1 sr^-1 (default; overwritten per bin)
@@ -138,7 +114,27 @@ def _load_totani_mcmc_arrays(mcmc_dir=None):
     return E_GeV, phi, sigma
 
 
-E_BINS_GEV, PHI_TOTANI, SIGMA_TOTANI = _load_totani_mcmc_arrays()
+_LAZY_ARRAYS = ("E_BINS_GEV", "PHI_TOTANI", "SIGMA_TOTANI")
+
+
+def _halo_arrays():
+    """(E_BINS_GEV, PHI_TOTANI, SIGMA_TOTANI), loading the posterior on demand.
+
+    These three arrays are only ever the *defaults* of the scan machinery --
+    every production call passes its spectrum explicitly. Loading them eagerly
+    would make importing this module require the companion posterior, which the
+    figure scripts do not need: they read the committed exclusion grids.
+    """
+    if "PHI_TOTANI" not in globals():
+        globals().update(zip(_LAZY_ARRAYS, _load_totani_mcmc_arrays()))
+    return tuple(globals()[n] for n in _LAZY_ARRAYS)
+
+
+def __getattr__(name):
+    """Resolve the lazy halo arrays for importers (PEP 562)."""
+    if name in _LAZY_ARRAYS:
+        return _halo_arrays()[_LAZY_ARRAYS.index(name)]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def configure_totani_arrays(mcmc_dir) -> None:
@@ -149,15 +145,35 @@ def configure_totani_arrays(mcmc_dir) -> None:
     halo profile, e.g. global_rho2.5 or global_rho1, so that all
     downstream defaults derived from these arrays are consistent.
     """
-    global E_BINS_GEV, PHI_TOTANI, SIGMA_TOTANI
-    E_BINS_GEV, PHI_TOTANI, SIGMA_TOTANI = _load_totani_mcmc_arrays(Path(mcmc_dir))
+    globals().update(zip(_LAZY_ARRAYS, _load_totani_mcmc_arrays(Path(mcmc_dir))))
 
 
-# Forward-scattering angular cutoff.
-# Required for the gravitational scattering case (t -> 0 divergence).
-# For EFT operators (dipole, charge radius, Rayleigh), dσ/dΩ ∝ (-t)^n
-# with n >= 1, so these are regular at θ=0 and the cut is redundant.
-# Kept here for consistency with the gravitational pipeline.
+# Forward-scattering angular cutoff. PHYSICAL, not merely a regulator.
+#
+# 1 - cos(theta) < 1e-4 corresponds to a deflection of 0.81 deg, comparable to
+# the Fermi-LAT PSF (68% containment ~0.8 deg at 1 GeV; Atwood+ 2009). A photon
+# scattered inside this cone is not resolved as displaced from its original
+# direction, and by the Compton relation it also retains essentially all of its
+# energy, so it has not been removed from the measured spectrum in any
+# observable sense. sigma_tot below is therefore the cross section for
+# OBSERVABLE REMOVAL from the line of sight, not the full elastic cross
+# section. See Sec. IV A of the paper.
+#
+# It originated as a regulator for the gravitational case (t -> 0 Rutherford
+# divergence) and was long assumed redundant for the EFT operators, on the
+# grounds that dsigma/dOmega ~ (-t)^n with n >= 1 is regular at theta = 0.
+# That assumption is FALSE for omega >> m_chi: the Compton kinematics compress
+# most of the momentum-transfer range into 1 - cos(theta) <~ m_chi/omega, so
+# once m_chi/omega < 1e-4 the cut removes the bulk of the t-integral. Fraction
+# of the full elastic sigma_tot retained:
+#
+#   omega/m_chi     1e2     1e3     1e4     1e5     1e7
+#   scalar         1.000   0.999   0.875   0.249   0.003
+#   Rayleigh-odd   1.000   1.000   0.938   0.317   0.004
+#   dipole         0.990   0.909   0.500   0.091   0.001
+#
+# Do not raise this to 1.0 without also changing what the paper claims
+# sigma_tot means.
 COS_THETA_MAX = 1.0 - 1e-4
 
 # Unit conversions
@@ -202,6 +218,17 @@ OPERATOR_METADATA = {
     },
     "rayleigh_odd": {
         "paper_label": r"$O_{\chi5\chi FF}$ / $O_{\psi5\psi FF}$",
+        "lambda_power": 6,
+        "coefficient_power": 1.0 / 3.0,
+    },
+    "rayleigh_full": {
+        # The combined dim-7 case, c_s and c_p both non-zero. It had NO entry,
+        # so _paper_y_axis_values took its early return and handed back bare
+        # Lambda: the dim-7 combined panel's axis was labelled as rescaled
+        # while performing no rescaling. Invisible at the c = 1 benchmark,
+        # since 1^(1/3) = 1, which is why it survived unnoticed. Same powers as
+        # rayleigh_even/odd, which it is the incoherent sum of.
+        "paper_label": r"$O_{\chi\chi FF} + O_{\chi5\chi FF}$",
         "lambda_power": 6,
         "coefficient_power": 1.0 / 3.0,
     },
@@ -274,10 +301,6 @@ def eft_validity_lambda_curve(m_chi_arr, *, omega_max, eft_kinematic_factor=1.0)
         omega_max=omega_max,
         eft_kinematic_factor=eft_kinematic_factor,
     )
-
-
-def unitarity_lambda_curve(operator, m_chi_arr):
-    return _shared_unitarity_lambda_curve(operator, m_chi_arr)
 
 
 def lab_dsigma_prefactor(mchi, omega, theta):
@@ -677,48 +700,8 @@ def compute_tau_bar_spectrum_eft(E_bins, m_chi_GeV, Lambda_GeV, l_grid, b_grid,
 
 
 # =============================================================================
-# CHI-SQUARED AND CONSTRAINTS
+# OPERATOR METADATA AND BOUNDARY EXTRACTION
 # =============================================================================
-
-def compute_attenuated_spectrum(tau_bar, phi_totani=PHI_TOTANI):
-    """Apply scattering attenuation: Phi_att(E) = Phi_Totani(E) * exp(-tau_bar(E))."""
-    return phi_totani * np.exp(-tau_bar)
-
-
-def compute_chi2(tau_bar, phi_totani=PHI_TOTANI, sigma_totani=SIGMA_TOTANI):
-    """Chi-squared between attenuated and observed halo flux."""
-    phi_att = compute_attenuated_spectrum(tau_bar, phi_totani)
-    mask = phi_totani > 0
-    assert np.all(phi_att[mask] >= 0), "Attenuated flux went negative in valid bins"
-    residuals = (phi_att[mask] - phi_totani[mask]) / sigma_totani[mask]
-    return np.sum(residuals**2)
-
-
-def chi2_grid_scan_eft(m_chi_arr, Lambda_arr, E_bins, l_grid, b_grid,
-                       dm_type="fermionic", operator="rayleigh_full",
-                       c_s=1.0, c_p=1.0, c_phi=1.0, majorana=False):
-    """
-    Scan (m_chi, Lambda) parameter space and compute chi^2 at each point.
-    
-    Returns chi2_grid of shape (len(m_chi_arr), len(Lambda_arr)).
-    """
-    chi2_grid = np.zeros((len(m_chi_arr), len(Lambda_arr)))
-    
-    for i, m_chi in enumerate(m_chi_arr):
-        for j, Lambda in enumerate(Lambda_arr):
-            tau_bar = compute_tau_bar_spectrum_eft(
-                E_bins, m_chi, Lambda, l_grid, b_grid,
-                dm_type=dm_type, operator=operator,
-                c_s=c_s, c_p=c_p, c_phi=c_phi, majorana=majorana
-            )
-            chi2_grid[i, j] = compute_chi2(tau_bar)
-            
-            if (i * len(Lambda_arr) + j) % 10 == 0:
-                pct = 100 * (i * len(Lambda_arr) + j) / (len(m_chi_arr) * len(Lambda_arr))
-                print(f"Progress: {pct:.1f}%")
-    
-    return chi2_grid
-
 
 def _operator_metadata(dm_type, operator):
     if dm_type == "scalar" and operator == "rayleigh":
@@ -739,18 +722,69 @@ def _effective_coefficient(dm_type, operator, c_s=1.0, c_p=1.0, c_phi=1.0):
         return float(c_s)
     if operator in ("dipole_electric", "anapole", "rayleigh_odd"):
         return float(c_p)
+    if operator == "rayleigh_full":
+        # Incoherent sum of the even (c_s) and odd (c_p) amplitudes. The scan
+        # sets c_s = c_p, so the rescaling is well defined; if they differ there
+        # is no single c and the rescaled axis is not meaningful, so we say so
+        # rather than silently returning 1.0 as the old fallback did.
+        if float(c_s) != float(c_p):
+            raise ValueError(
+                "rayleigh_full rescaling needs c_s == c_p; got "
+                f"c_s={c_s!r}, c_p={c_p!r}. The combined operator has no single "
+                "Wilson coefficient when the two differ."
+            )
+        return float(c_s)
     return 1.0
 
 
-def _paper_y_axis_values(Lambda_arr, dm_type, operator, c_s=1.0, c_p=1.0, c_phi=1.0):
+# Fraction of the halo that scatters. tau ~ f_scat * c^2 / Lambda^p, so f_scat
+# is EXACTLY degenerate with the Wilson coefficient and enters the rescaled axis
+# through the same invariant combination:
+#
+#     Lambda / (c^2 f_scat)^(1/p),   p = 4 (dim-5 dipoles, dim-6 scalar Rayleigh)
+#                                    p = 6 (dim-7 Rayleigh)
+#
+# (c^2)^(1/4) = c^(1/2) and (c^2)^(1/6) = c^(1/3), so this reproduces the
+# existing c^(1/2) and c^(1/3) axes exactly at the default f_scat = 1: a limit
+# quoted here assumes the WHOLE halo scatters, and a sub-component f_scat < 1
+# weakens it by f_scat^(-1/p).
+F_SCAT_DEFAULT = 1.0
+
+
+# Lambda power p in sigma ~ Lambda^-p, used ONLY for the f_scat exponent. Some
+# combined keys (notably rayleigh_full) carry no metadata entry, so
+# coefficient_power and lambda_power are both None and the existing c-rescaling
+# silently returns Lambda unchanged for them. That is pre-existing behaviour and
+# is left alone here; this table exists so f_scat still gets the right exponent
+# in those cases rather than being dropped along with it.
+_FSCAT_POWER_FALLBACK = {
+    "rayleigh_full": 6, "rayleigh_even": 6, "rayleigh_odd": 6,
+    "scalar_rayleigh": 4, "dipole_magnetic": 4, "dipole_electric": 4,
+}
+
+
+def _paper_y_axis_values(Lambda_arr, dm_type, operator, c_s=1.0, c_p=1.0, c_phi=1.0,
+                         f_scat=F_SCAT_DEFAULT):
     meta = _operator_metadata(dm_type, operator)
     coeff_power = meta.get("coefficient_power", None)
     if coeff_power is None:
-        return np.asarray(Lambda_arr, dtype=float)
+        out = np.asarray(Lambda_arr, dtype=float)
+        p = _FSCAT_POWER_FALLBACK.get(str(operator))
+        if f_scat != 1.0 and p is not None:
+            if not (f_scat > 0):
+                raise ValueError(f"f_scat must be positive, got {f_scat!r}")
+            out = out / (float(f_scat) ** (1.0 / p))
+        return out
     coeff = _effective_coefficient(dm_type, operator, c_s=c_s, c_p=c_p, c_phi=c_phi)
     if coeff <= 0:
         raise ValueError("Operator coefficient must be positive for paper-style rescaling.")
-    return np.asarray(Lambda_arr, dtype=float) / (coeff ** coeff_power)
+    if not (f_scat > 0):
+        raise ValueError(f"f_scat must be positive, got {f_scat!r}")
+    p = float(meta.get("lambda_power", None) or _FSCAT_POWER_FALLBACK.get(str(operator), 4))
+    out = np.asarray(Lambda_arr, dtype=float) / (coeff ** coeff_power)
+    if f_scat != 1.0:                                # exact no-op at the default
+        out = out / (f_scat ** (1.0 / p))
+    return out
 
 
 def extract_90cl_boundary(m_chi_arr, Lambda_arr, chi2_grid):
@@ -765,7 +799,13 @@ def extract_90cl_boundary(m_chi_arr, Lambda_arr, chi2_grid):
     contour directly, so the saved boundary matches the plotted contour.
     """
     threshold = 4.61
-    chi2_min = np.min(chi2_grid)
+    # nanmin, not min: a single NaN anywhere in the grid would otherwise make
+    # chi2_min NaN, dchi2 all-NaN, and contour() return no segments at all --
+    # silently reporting "no 90% CL contour" for a grid that has one. Grids
+    # computed with the source normalisation held fixed contain no NaN, so this
+    # is a no-op for them; profiled grids do, because best_fit_normalization()
+    # returns NaN wherever the attenuated model underflows at large tau.
+    chi2_min = np.nanmin(chi2_grid)
     dchi2 = chi2_grid - chi2_min
 
     M, L = np.meshgrid(m_chi_arr, Lambda_arr, indexing='ij')
@@ -810,700 +850,3 @@ def extract_90cl_boundary(m_chi_arr, Lambda_arr, chi2_grid):
 
     return np.column_stack((10 ** x_eval[good], 10 ** y_best[good]))
 
-
-def save_boundary_npz(boundary, dm_type, operator, c_s=1.0, c_p=1.0, c_phi=1.0,
-                      majorana=False, *, omega_max_for_validity=None, eft_kinematic_factor=1.0):
-    """
-    Save a 90% CL boundary in both raw Lambda and paper-style Lambda/C^(1/n) form.
-    Uses compressed format and float32 to minimize file size.
-    """
-    outdir = Path(__file__).resolve().parent.parent / "constraint_boundaries"
-    outdir.mkdir(exist_ok=True)
-    meta = _operator_metadata(dm_type, operator)
-    if boundary.size == 0:
-        return None
-
-    lambda_raw = boundary[:, 1]
-    lambda_plot = _paper_y_axis_values(
-        lambda_raw, dm_type, operator, c_s=c_s, c_p=c_p, c_phi=c_phi
-    )
-    suffix = "_majorana" if majorana else ""
-    outpath = outdir / f"totani_{dm_type}_{operator}{suffix}_90cl.npz"
-    np.savez_compressed(
-        outpath,
-        mchi_GeV=boundary[:, 0].astype(np.float32),
-        lambda_GeV=lambda_raw.astype(np.float32),
-        lambda_plot_GeV=lambda_plot.astype(np.float32),
-        paper_label=meta["paper_label"],
-        dm_type=dm_type,
-        operator=operator,
-        coefficient_power=meta["coefficient_power"],
-        c_s=np.float32(c_s),
-        c_p=np.float32(c_p),
-        c_phi=np.float32(c_phi),
-        majorana=majorana,
-        omega_max_for_validity=np.float32(omega_max_for_validity) if omega_max_for_validity is not None else np.float32(np.nan),
-        eft_kinematic_factor=np.float32(eft_kinematic_factor),
-        validity_guides="kinematic_eft_and_unitarity",
-        boundary_extraction="unfiltered_scan_contour",
-    )
-    print(f"Saved boundary: {outpath}")
-    return outpath
-
-
-def load_fermi_spectrum_energies(default_path=None):
-    if default_path is None:
-        _repo = Path(__file__).resolve().parent.parent
-        _bundled = _repo / "data" / "fermi_halo_spectrum.txt"
-        _external = _repo.parent / "fermi_data" / "york" / "processed" / "spectrum_data.txt"
-        default_path = _bundled if _bundled.exists() else _external
-    arr = np.loadtxt(str(default_path))
-    return np.asarray(arr[:, 0], dtype=float)
-
-
-def extract_tau_needed_boundary(m_chi_arr, Lambda_arr, E_bins, l_grid, b_grid, *,
-                                tau_needed,
-                                dm_type="fermionic", operator="rayleigh_full",
-                                c_s=1.0, c_p=1.0, c_phi=1.0, majorana=False):
-    """Extract a naive sensitivity boundary defined by max_E tau_bar(E) >= tau_needed.
-
-    For fixed m_chi, tau decreases monotonically with increasing Lambda, so we
-    extract the crossing tau_max(Lambda) = tau_needed in log-log space.
-    """
-    tau_needed = float(tau_needed)
-    m_chi_arr = np.asarray(m_chi_arr, dtype=float)
-    Lambda_arr = np.asarray(Lambda_arr, dtype=float)
-    E_bins = np.asarray(E_bins, dtype=float)
-
-    boundary = []
-    for m_chi in m_chi_arr:
-        tau_max_vs_lambda = np.zeros(len(Lambda_arr), dtype=float)
-        for j, Lambda in enumerate(Lambda_arr):
-            tau_bar = compute_tau_bar_spectrum_eft(
-                E_bins, float(m_chi), float(Lambda), l_grid, b_grid,
-                dm_type=dm_type, operator=operator,
-                c_s=c_s, c_p=c_p, c_phi=c_phi, majorana=majorana,
-            )
-            tau_max_vs_lambda[j] = float(np.max(np.asarray(tau_bar, dtype=float))) if len(tau_bar) else 0.0
-
-        good = np.isfinite(tau_max_vs_lambda) & (tau_max_vs_lambda > 0.0)
-        if not np.any(good):
-            continue
-
-        tau_vals = np.asarray(tau_max_vs_lambda, dtype=float)
-        meets = tau_vals >= tau_needed
-        if not np.any(meets):
-            continue
-
-        idx_last = int(np.max(np.where(meets)[0]))
-        if idx_last >= (len(Lambda_arr) - 1):
-            boundary.append((float(m_chi), float(Lambda_arr[idx_last])))
-            continue
-
-        Lam0 = float(Lambda_arr[idx_last])
-        Lam1 = float(Lambda_arr[idx_last + 1])
-        t0 = float(tau_vals[idx_last])
-        t1 = float(tau_vals[idx_last + 1])
-
-        if t0 <= 0.0 or t1 <= 0.0 or not np.isfinite(t0) or not np.isfinite(t1) or (t0 == t1):
-            boundary.append((float(m_chi), float(Lam0)))
-            continue
-
-        x0 = np.log10(Lam0)
-        x1 = np.log10(Lam1)
-        y0 = np.log10(t0)
-        y1 = np.log10(t1)
-        yT = np.log10(max(tau_needed, 1e-300))
-        xT = x0 + (x1 - x0) * (yT - y0) / (y1 - y0)
-        boundary.append((float(m_chi), float(10 ** xT)))
-
-    return np.asarray(boundary, dtype=float)
-
-
-def save_naive_boundary_npz(boundary, dm_type, operator, *, dip_depth,
-                            c_s=1.0, c_p=1.0, c_phi=1.0, majorana=False,
-                            omega_max_for_validity=None, eft_kinematic_factor=1.0):
-    outdir = Path(__file__).resolve().parent.parent / "constraint_boundaries"
-    outdir.mkdir(exist_ok=True)
-    meta = _operator_metadata(dm_type, operator)
-    if boundary.size == 0:
-        return None
-
-    lambda_raw = boundary[:, 1]
-    lambda_plot = _paper_y_axis_values(
-        lambda_raw, dm_type, operator, c_s=c_s, c_p=c_p, c_phi=c_phi
-    )
-    suffix = "_majorana" if majorana else ""
-    outpath = outdir / f"fermi_naive_{dm_type}_{operator}{suffix}_{float(dip_depth):g}.npz"
-    np.savez_compressed(
-        outpath,
-        mchi_GeV=boundary[:, 0].astype(np.float32),
-        lambda_GeV=lambda_raw.astype(np.float32),
-        lambda_plot_GeV=lambda_plot.astype(np.float32),
-        paper_label=meta["paper_label"],
-        dm_type=dm_type,
-        operator=operator,
-        coefficient_power=meta["coefficient_power"],
-        c_s=np.float32(c_s),
-        c_p=np.float32(c_p),
-        c_phi=np.float32(c_phi),
-        dip_depth=np.float32(dip_depth),
-        tau_needed=np.float32(-np.log(1.0 - float(dip_depth))) if float(dip_depth) > 0 else np.float32(0.0),
-        majorana=majorana,
-        omega_max_for_validity=np.float32(omega_max_for_validity) if omega_max_for_validity is not None else np.float32(np.nan),
-        eft_kinematic_factor=np.float32(eft_kinematic_factor),
-        validity_guides="kinematic_eft_and_unitarity",
-        boundary_extraction="naive_tau_threshold",
-    )
-    print(f"Saved boundary: {outpath}")
-    return outpath
-
-
-def run_naive_fermi_constraints(m_chi_arr, Lambda_arr, *,
-                               dip_depth=0.01,
-                               E_bins=None,
-                               dm_type="fermionic", operator="rayleigh_full",
-                               c_s=1.0, c_p=1.0, c_phi=1.0, majorana=False,
-                               eft_kinematic_factor=1.0,
-                               l_grid=None, b_grid=None):
-    if E_bins is None:
-        E_bins = load_fermi_spectrum_energies()
-    if l_grid is None:
-        l_grid = np.linspace(-60, 60, 15)
-    if b_grid is None:
-        b_grid = np.concatenate([
-            np.linspace(-60, -10, 8),
-            np.linspace(10, 60, 8),
-        ])
-
-    dip_depth = float(dip_depth)
-    dip_depth = min(max(dip_depth, 0.0), 0.999999)
-    tau_needed = -np.log(1.0 - dip_depth) if dip_depth > 0 else 0.0
-
-    boundary = extract_tau_needed_boundary(
-        m_chi_arr,
-        Lambda_arr,
-        E_bins,
-        l_grid,
-        b_grid,
-        tau_needed=tau_needed,
-        dm_type=dm_type,
-        operator=operator,
-        c_s=c_s,
-        c_p=c_p,
-        c_phi=c_phi,
-        majorana=majorana,
-    )
-    return save_naive_boundary_npz(
-        boundary,
-        dm_type,
-        operator,
-        dip_depth=dip_depth,
-        c_s=c_s,
-        c_p=c_p,
-        c_phi=c_phi,
-        majorana=majorana,
-        omega_max_for_validity=float(np.max(E_bins)),
-        eft_kinematic_factor=float(eft_kinematic_factor),
-    )
-
-
-# =============================================================================
-# PLOTTING FUNCTIONS
-# =============================================================================
-
-def plot_chi2_contours_eft(m_chi_arr, Lambda_arr, chi2_grid, 
-                           dm_type="fermionic", operator="rayleigh_full",
-                           c_s=1.0, c_p=1.0, c_phi=1.0, majorana=False):
-    """Plot Delta-chi^2 contours in (m_chi, Lambda) space."""
-    set_plot_style(style="paper", cmap_name="plasma", base_fontsize=12, linewidth=1.8, n_colors=10)
-    chi2_min  = np.min(chi2_grid)
-    dchi2     = chi2_grid - chi2_min
-    
-    fig, ax = plt.subplots(figsize=(9, 6))
-    M, L = np.meshgrid(m_chi_arr, Lambda_arr, indexing='ij')
-    
-    # Filled contours
-    levels_fill = np.linspace(0, min(50, np.max(dchi2)), 50)
-    cf = ax.contourf(np.log10(M), np.log10(L), dchi2,
-                     levels=levels_fill, cmap='plasma', alpha=0.8)
-    
-    # Confidence level contours
-    contour_levels = [4.61, 9.21]
-    cs = ax.contour(np.log10(M), np.log10(L), dchi2,
-                    levels=contour_levels, colors='red', linewidths=2.5)
-    
-    ax.clabel(cs, contour_levels, inline=True, fontsize=11,
-              fmt={4.61: '90% CL', 9.21: '99% CL'})
-    
-    # Colorbar
-    cbar = plt.colorbar(cf, ax=ax, label=r'$\Delta \chi^2$')
-    cbar.ax.tick_params(labelsize=11)
-    
-    # Labels
-    ax.set_xlabel(r'$\log_{10}(m_\chi / \mathrm{GeV})$', fontsize=14)
-    ax.set_ylabel(r'$\log_{10}(\Lambda / \mathrm{GeV})$', fontsize=14)
-    
-    suffix = ' (Majorana)' if majorana else ''
-    title = f'{dm_type.capitalize()} DM: {operator} operator{suffix}'
-    ax.set_title(f'Constraint from Fermi halo excess\n{title}', fontsize=13, pad=10)
-    ax.tick_params(labelsize=11)
-    ax.grid(True, alpha=0.3, linestyle='--')
-    
-    plt.tight_layout()
-    suffix_file = '_majorana' if majorana else ''
-    filename = f'chi2_contours_{dm_type}_{operator}{suffix_file}.png'
-    plt.savefig(filename, dpi=150, bbox_inches='tight', pil_kwargs={'optimize': True}, **current_savefig_kwargs())
-    plt.close()
-    print(f"Saved: {filename}")
-
-
-def plot_exclusion_curve_eft(m_chi_arr, Lambda_arr, chi2_grid,
-                              dm_type="fermionic", operator="rayleigh_full",
-                              c_s=1.0, c_p=1.0, c_phi=1.0, majorana=False,
-                              omega_max_for_validity=None, eft_kinematic_factor=1.0):
-    """Extract and plot 90% CL exclusion boundary."""
-    set_plot_style(style="paper", cmap_name="plasma", base_fontsize=12, linewidth=1.8, n_colors=10)
-    Lambda_upper_90 = extract_90cl_boundary(m_chi_arr, Lambda_arr, chi2_grid)
-    if omega_max_for_validity is None:
-        omega_max_for_validity = float(np.max(E_BINS_GEV))
-    save_boundary_npz(
-        Lambda_upper_90,
-        dm_type,
-        operator,
-        c_s=c_s,
-        c_p=c_p,
-        c_phi=c_phi,
-        majorana=majorana,
-        omega_max_for_validity=float(omega_max_for_validity),
-        eft_kinematic_factor=float(eft_kinematic_factor),
-    )
-    lambda_plot_arr = _paper_y_axis_values(
-        Lambda_arr, dm_type, operator, c_s=c_s, c_p=c_p, c_phi=c_phi
-    )
-    if len(Lambda_upper_90) > 0:
-        lambda_plot_boundary = _paper_y_axis_values(
-            Lambda_upper_90[:, 1], dm_type, operator, c_s=c_s, c_p=c_p, c_phi=c_phi
-        )
-        
-        fig, ax = plt.subplots(figsize=(9, 6))
-        
-        # Exclusion region (below the curve is excluded for EFT)
-        ax.fill_between(np.log10(Lambda_upper_90[:, 0]),
-                        np.log10(lambda_plot_arr[0]),
-                        np.log10(lambda_plot_boundary),
-                        alpha=0.3, color='red', label='Excluded (90% CL)')
-        
-        # Boundary line
-        ax.plot(np.log10(Lambda_upper_90[:, 0]),
-                np.log10(lambda_plot_boundary),
-                'r-', lw=2.5, label='90% CL lower limit')
-
-        lam_kin = eft_validity_lambda_curve(
-            m_chi_arr,
-            omega_max=float(omega_max_for_validity),
-            eft_kinematic_factor=float(eft_kinematic_factor),
-        )
-        kin_good = np.isfinite(lam_kin) & (lam_kin > 0.0)
-        if np.any(kin_good):
-            kin_plot = _paper_y_axis_values(
-                lam_kin[kin_good], dm_type, operator, c_s=c_s, c_p=c_p, c_phi=c_phi
-            )
-            ax.plot(
-                np.log10(np.asarray(m_chi_arr, dtype=float)[kin_good]),
-                np.log10(kin_plot),
-                color='magenta', lw=1.8, ls='--',
-                label='Kinematic EFT validity',
-            )
-
-        lam_unit = unitarity_lambda_curve(operator, m_chi_arr)
-        unit_good = np.isfinite(lam_unit) & (lam_unit > 0.0)
-        if np.any(unit_good):
-            unit_plot = _paper_y_axis_values(
-                lam_unit[unit_good], dm_type, operator, c_s=c_s, c_p=c_p, c_phi=c_phi
-            )
-            ax.plot(
-                np.log10(np.asarray(m_chi_arr, dtype=float)[unit_good]),
-                np.log10(unit_plot),
-                color='0.6', lw=1.4, ls=':',
-                label='Unitarity guide',
-            )
-        
-        # Formatting
-        ax.set_xlabel(r'$\log_{10}(m_\chi / \mathrm{GeV})$', fontsize=14)
-        meta = _operator_metadata(dm_type, operator)
-        cpow = meta.get("coefficient_power", None)
-        if cpow == 0.5:
-            ylabel = r'$\log_{10}(\Lambda / C^{1/2})\ [\mathrm{GeV}]$'
-        elif cpow == 1.0 / 3.0:
-            ylabel = r'$\log_{10}(\Lambda / C^{1/3})\ [\mathrm{GeV}]$'
-        else:
-            ylabel = r'$\log_{10}(\Lambda / \mathrm{GeV})$'
-        ax.set_ylabel(ylabel, fontsize=14)
-        
-        suffix = ' (Majorana)' if majorana else ''
-        title = f'{dm_type.capitalize()} DM: {operator} operator{suffix}'
-        ax.set_title(f'Exclusion from Fermi halo excess\n{title}',
-                     fontsize=13, pad=10)
-        ax.tick_params(labelsize=11)
-        ax.grid(True, alpha=0.3, linestyle='--')
-        ax.legend(loc='best', fontsize=12, framealpha=0.9)
-        
-        ax.set_xlim(np.log10(m_chi_arr[0]), np.log10(m_chi_arr[-1]))
-        ax.set_ylim(np.log10(lambda_plot_arr[0]), np.log10(lambda_plot_arr[-1]))
-        
-        plt.tight_layout()
-        suffix_file = '_majorana' if majorana else ''
-        filename = f'exclusion_curve_{dm_type}_{operator}{suffix_file}.png'
-        plt.savefig(filename, dpi=150, bbox_inches='tight', pil_kwargs={'optimize': True}, **current_savefig_kwargs())
-        plt.close()
-        print(f"Saved: {filename}")
-    else:
-        print("Warning: No 90% CL exclusion boundary found")
-
-
-# =============================================================================
-# DRIVER: RUN SCANS
-# =============================================================================
-
-if __name__ == "__main__":
-    
-    # Grid over Totani's ROI
-    l_grid = np.linspace(-60, 60, 15)
-    b_grid = np.concatenate([
-        np.linspace(-60, -10, 8),
-        np.linspace( 10,  60, 8)
-    ])
-    
-    print("=" * 70)
-    print("EFT OPERATOR CONSTRAINTS FROM FERMI HALO EXCESS")
-    print("=" * 70)
-    
-    # ========== SCALAR DM ==========
-    print("\n" + "=" * 70)
-    print("SCALAR DM: Rayleigh-like operator (c_phi = 1)")
-    print("=" * 70)
-    
-    m_chi_arr_scalar = np.logspace(-6, 20, 50)
-    Lambda_arr_scalar = np.logspace(-3, 6, 40)   # 100 GeV to 1 PeV
-    
-    chi2_scalar = chi2_grid_scan_eft(
-        m_chi_arr_scalar, Lambda_arr_scalar, E_BINS_GEV, l_grid, b_grid,
-        dm_type="scalar", operator="rayleigh", c_phi=1.0
-    )
-    
-    plot_chi2_contours_eft(m_chi_arr_scalar, Lambda_arr_scalar, chi2_scalar,
-                           dm_type="scalar", operator="rayleigh", c_phi=1.0)
-    plot_exclusion_curve_eft(m_chi_arr_scalar, Lambda_arr_scalar, chi2_scalar,
-                             dm_type="scalar", operator="rayleigh", c_phi=1.0)
-    run_naive_fermi_constraints(
-        m_chi_arr_scalar,
-        Lambda_arr_scalar,
-        dip_depth=0.01,
-        E_bins=load_fermi_spectrum_energies(),
-        dm_type="scalar",
-        operator="rayleigh",
-        c_phi=1.0,
-        majorana=False,
-    )
-    
-    # ========== FERMIONIC DM: RAYLEIGH OPERATOR ==========
-    print("\n" + "=" * 70)
-    print("FERMIONIC DM: Rayleigh operator (c_s = c_p = 1)")
-    print("=" * 70)
-    
-    m_chi_arr_ferm   = np.logspace(-6, 20, 50)
-    Lambda_arr_ferm  = np.logspace(-3,  7, 40)
-    
-    chi2_ferm_rayleigh = chi2_grid_scan_eft(
-        m_chi_arr_ferm, Lambda_arr_ferm, E_BINS_GEV, l_grid, b_grid,
-        dm_type="fermionic", operator="rayleigh_full", c_s=1.0, c_p=1.0, majorana=False
-    )
-    
-    plot_chi2_contours_eft(m_chi_arr_ferm, Lambda_arr_ferm, chi2_ferm_rayleigh,
-                           dm_type="fermionic", operator="rayleigh_full",
-                           c_s=1.0, c_p=1.0, majorana=False)
-    plot_exclusion_curve_eft(m_chi_arr_ferm, Lambda_arr_ferm, chi2_ferm_rayleigh,
-                             dm_type="fermionic", operator="rayleigh_full", majorana=False)
-    run_naive_fermi_constraints(
-        m_chi_arr_ferm,
-        Lambda_arr_ferm,
-        dip_depth=0.01,
-        E_bins=load_fermi_spectrum_energies(),
-        dm_type="fermionic",
-        operator="rayleigh_full",
-        c_s=1.0,
-        c_p=1.0,
-        majorana=False,
-    )
-
-    print("\n" + "=" * 70)
-    print("FERMIONIC DM: Rayleigh-even")
-    print("=" * 70)
-    chi2_ferm_rayleigh_even = chi2_grid_scan_eft(
-        m_chi_arr_ferm, Lambda_arr_ferm, E_BINS_GEV, l_grid, b_grid,
-        dm_type="fermionic", operator="rayleigh_even", c_s=1.0, c_p=0.0, majorana=False
-    )
-    plot_chi2_contours_eft(m_chi_arr_ferm, Lambda_arr_ferm, chi2_ferm_rayleigh_even,
-                        dm_type="fermionic", operator="rayleigh_even",
-                        c_s=1.0, c_p=0.0, majorana=False)
-    plot_exclusion_curve_eft(
-        m_chi_arr_ferm, Lambda_arr_ferm, chi2_ferm_rayleigh_even,
-        dm_type="fermionic", operator="rayleigh_even", c_s=1.0, c_p=0.0, majorana=False
-    )
-    run_naive_fermi_constraints(
-        m_chi_arr_ferm,
-        Lambda_arr_ferm,
-        dip_depth=0.01,
-        E_bins=load_fermi_spectrum_energies(),
-        dm_type="fermionic",
-        operator="rayleigh_even",
-        c_s=1.0,
-        c_p=0.0,
-        majorana=False,
-    )
-
-    print("\n" + "=" * 70)
-    print("FERMIONIC DM: Rayleigh-odd")
-    print("=" * 70)
-    chi2_ferm_rayleigh_odd = chi2_grid_scan_eft(
-        m_chi_arr_ferm, Lambda_arr_ferm, E_BINS_GEV, l_grid, b_grid,
-        dm_type="fermionic", operator="rayleigh_odd", c_s=0.0, c_p=1.0, majorana=False
-    )
-    plot_chi2_contours_eft(
-        m_chi_arr_ferm, Lambda_arr_ferm, chi2_ferm_rayleigh_odd,
-        dm_type="fermionic", operator="rayleigh_odd", c_s=0.0, c_p=1.0, majorana=False
-    )
-    plot_exclusion_curve_eft(
-        m_chi_arr_ferm, Lambda_arr_ferm, chi2_ferm_rayleigh_odd,
-        dm_type="fermionic", operator="rayleigh_odd", c_s=0.0, c_p=1.0, majorana=False
-    )
-    run_naive_fermi_constraints(
-        m_chi_arr_ferm,
-        Lambda_arr_ferm,
-        dip_depth=0.01,
-        E_bins=load_fermi_spectrum_energies(),
-        dm_type="fermionic",
-        operator="rayleigh_odd",
-        c_s=0.0,
-        c_p=1.0,
-        majorana=False,
-    )
-    
-    # ========== FERMIONIC DM: MAGNETIC DIPOLE ==========
-    print("\n" + "=" * 70)
-    print("FERMIONIC DM: Magnetic dipole (c_s = 1)")
-    print("=" * 70)
-    
-    Lambda_arr_dipole = np.logspace(-3,  7, 40)  # 1 GeV to 10 TeV
-    
-    chi2_ferm_dipole = chi2_grid_scan_eft(
-        m_chi_arr_ferm, Lambda_arr_dipole, E_BINS_GEV, l_grid, b_grid,
-        dm_type="fermionic", operator="dipole_magnetic", c_s=1.0, c_p=0.0, majorana=False
-    )
-    
-    plot_chi2_contours_eft(m_chi_arr_ferm, Lambda_arr_dipole, chi2_ferm_dipole,
-                           dm_type="fermionic", operator="dipole_magnetic",
-                           c_s=1.0, c_p=0.0, majorana=False)
-    plot_exclusion_curve_eft(m_chi_arr_ferm, Lambda_arr_dipole, chi2_ferm_dipole,
-                             dm_type="fermionic", operator="dipole_magnetic",
-                             c_s=1.0, c_p=0.0, majorana=False)
-
-    print("\n" + "=" * 70)
-    print("FERMIONIC DM: Electric dipole (c_p = 1)")
-    print("=" * 70)
-    chi2_ferm_edm = chi2_grid_scan_eft(
-        m_chi_arr_ferm, Lambda_arr_dipole, E_BINS_GEV, l_grid, b_grid,
-        dm_type="fermionic", operator="dipole_electric", c_s=0.0, c_p=1.0, majorana=False
-    )
-    plot_chi2_contours_eft(
-        m_chi_arr_ferm, Lambda_arr_dipole, chi2_ferm_edm,
-        dm_type="fermionic", operator="dipole_electric",
-        c_s=0.0, c_p=1.0, majorana=False
-    )
-    plot_exclusion_curve_eft(
-        m_chi_arr_ferm, Lambda_arr_dipole, chi2_ferm_edm,
-        dm_type="fermionic", operator="dipole_electric",
-        c_s=0.0, c_p=1.0, majorana=False
-    )
-
-    print("\n" + "=" * 70)
-    print("FERMIONIC DM: Charge radius (c_s = 1)")
-    print("=" * 70)
-    chi2_ferm_cr = chi2_grid_scan_eft(
-        m_chi_arr_ferm, Lambda_arr_dipole, E_BINS_GEV, l_grid, b_grid,
-        dm_type="fermionic", operator="charge_radius", c_s=1.0, c_p=0.0, majorana=False
-    )
-    plot_chi2_contours_eft(
-        m_chi_arr_ferm, Lambda_arr_dipole, chi2_ferm_cr,
-        dm_type="fermionic", operator="charge_radius",
-        c_s=1.0, c_p=0.0, majorana=False
-    )
-    plot_exclusion_curve_eft(
-        m_chi_arr_ferm, Lambda_arr_dipole, chi2_ferm_cr,
-        dm_type="fermionic", operator="charge_radius",
-        c_s=1.0, c_p=0.0, majorana=False
-    )
-
-    print("\n" + "=" * 70)
-    print("FERMIONIC DM: Anapole (c_p = 1)")
-    print("=" * 70)
-    chi2_ferm_anapole = chi2_grid_scan_eft(
-        m_chi_arr_ferm, Lambda_arr_dipole, E_BINS_GEV, l_grid, b_grid,
-        dm_type="fermionic", operator="anapole", c_s=0.0, c_p=1.0, majorana=False
-    )
-    plot_chi2_contours_eft(
-        m_chi_arr_ferm, Lambda_arr_dipole, chi2_ferm_anapole,
-        dm_type="fermionic", operator="anapole",
-        c_s=0.0, c_p=1.0, majorana=False
-    )
-    plot_exclusion_curve_eft(
-        m_chi_arr_ferm, Lambda_arr_dipole, chi2_ferm_anapole,
-        dm_type="fermionic", operator="anapole",
-        c_s=0.0, c_p=1.0, majorana=False
-    )
-
-    E_bins_fermi = load_fermi_spectrum_energies()
-    run_naive_fermi_constraints(
-        m_chi_arr_ferm,
-        Lambda_arr_dipole,
-        dip_depth=0.01,
-        E_bins=E_bins_fermi,
-        dm_type="fermionic",
-        operator="dipole_magnetic",
-        c_s=1.0,
-        c_p=0.0,
-        majorana=False,
-    )
-    run_naive_fermi_constraints(
-        m_chi_arr_ferm,
-        Lambda_arr_dipole,
-        dip_depth=0.01,
-        E_bins=E_bins_fermi,
-        dm_type="fermionic",
-        operator="dipole_electric",
-        c_s=0.0,
-        c_p=1.0,
-        majorana=False,
-    )
-    run_naive_fermi_constraints(
-        m_chi_arr_ferm,
-        Lambda_arr_dipole,
-        dip_depth=0.01,
-        E_bins=E_bins_fermi,
-        dm_type="fermionic",
-        operator="charge_radius",
-        c_s=1.0,
-        c_p=0.0,
-        majorana=False,
-    )
-    run_naive_fermi_constraints(
-        m_chi_arr_ferm,
-        Lambda_arr_dipole,
-        dip_depth=0.01,
-        E_bins=E_bins_fermi,
-        dm_type="fermionic",
-        operator="anapole",
-        c_s=0.0,
-        c_p=1.0,
-        majorana=False,
-    )
-
-    # ========== MAJORANA FERMIONIC DM ==========
-    print("\n" + "=" * 70)
-    print("MAJORANA FERMIONIC DM: Rayleigh-even")
-    print("=" * 70)
-    chi2_majorana_rayleigh_even = chi2_grid_scan_eft(
-        m_chi_arr_ferm, Lambda_arr_ferm, E_BINS_GEV, l_grid, b_grid,
-        dm_type="fermionic", operator="rayleigh_even", c_s=1.0, c_p=0.0, majorana=True
-    )
-    plot_chi2_contours_eft(
-        m_chi_arr_ferm, Lambda_arr_ferm, chi2_majorana_rayleigh_even,
-        dm_type="fermionic", operator="rayleigh_even", c_s=1.0, c_p=0.0, majorana=True
-    )
-    plot_exclusion_curve_eft(
-        m_chi_arr_ferm, Lambda_arr_ferm, chi2_majorana_rayleigh_even,
-        dm_type="fermionic", operator="rayleigh_even", c_s=1.0, c_p=0.0, majorana=True
-    )
-    run_naive_fermi_constraints(
-        m_chi_arr_ferm,
-        Lambda_arr_ferm,
-        dip_depth=0.01,
-        E_bins=load_fermi_spectrum_energies(),
-        dm_type="fermionic",
-        operator="rayleigh_even",
-        c_s=1.0,
-        c_p=0.0,
-        majorana=True,
-    )
-
-    print("\n" + "=" * 70)
-    print("MAJORANA FERMIONIC DM: Rayleigh-odd")
-    print("=" * 70)
-    chi2_majorana_rayleigh_odd = chi2_grid_scan_eft(
-        m_chi_arr_ferm, Lambda_arr_ferm, E_BINS_GEV, l_grid, b_grid,
-        dm_type="fermionic", operator="rayleigh_odd", c_s=0.0, c_p=1.0, majorana=True
-    )
-    plot_chi2_contours_eft(
-        m_chi_arr_ferm, Lambda_arr_ferm, chi2_majorana_rayleigh_odd,
-        dm_type="fermionic", operator="rayleigh_odd", c_s=0.0, c_p=1.0, majorana=True
-    )
-    plot_exclusion_curve_eft(
-        m_chi_arr_ferm, Lambda_arr_ferm, chi2_majorana_rayleigh_odd,
-        dm_type="fermionic", operator="rayleigh_odd", c_s=0.0, c_p=1.0, majorana=True
-    )
-    run_naive_fermi_constraints(
-        m_chi_arr_ferm,
-        Lambda_arr_ferm,
-        dip_depth=0.01,
-        E_bins=load_fermi_spectrum_energies(),
-        dm_type="fermionic",
-        operator="rayleigh_odd",
-        c_s=0.0,
-        c_p=1.0,
-        majorana=True,
-    )
-
-    print("\n" + "=" * 70)
-    print("MAJORANA FERMIONIC DM: Anapole")
-    print("=" * 70)
-    chi2_majorana_anapole = chi2_grid_scan_eft(
-        m_chi_arr_ferm, Lambda_arr_dipole, E_BINS_GEV, l_grid, b_grid,
-        dm_type="fermionic", operator="anapole", c_s=0.0, c_p=1.0, majorana=True
-    )
-    plot_chi2_contours_eft(
-        m_chi_arr_ferm, Lambda_arr_dipole, chi2_majorana_anapole,
-        dm_type="fermionic", operator="anapole", c_s=0.0, c_p=1.0, majorana=True
-    )
-    plot_exclusion_curve_eft(
-        m_chi_arr_ferm, Lambda_arr_dipole, chi2_majorana_anapole,
-        dm_type="fermionic", operator="anapole", c_s=0.0, c_p=1.0, majorana=True
-    )
-
-    run_naive_fermi_constraints(
-        m_chi_arr_ferm,
-        Lambda_arr_dipole,
-        dip_depth=0.01,
-        E_bins=E_bins_fermi,
-        dm_type="fermionic",
-        operator="anapole",
-        c_s=0.0,
-        c_p=1.0,
-        majorana=True,
-    )
-
-    m_chi_arr_scalar = np.logspace(-6, 20, 20)
-    Lambda_arr_scalar = np.logspace(-3, 6, 15)
-    run_naive_fermi_constraints(
-        m_chi_arr_scalar,
-        Lambda_arr_scalar,
-        dip_depth=0.01,
-        E_bins=E_bins_fermi,
-        dm_type="scalar",
-        operator="rayleigh",
-        c_phi=1.0,
-    )
-    
-    print("\n" + "=" * 70)
-    print("ALL SCANS COMPLETE (INCLUDING MAJORANA DM)")
-    print("=" * 70)

@@ -1,4 +1,15 @@
-# Approximate digitization from screenshot of Figure 9
+# Source: D. Barducci, D. Buttazzo, A. Dondarini, R. Franceschini, G. Marino,
+#   F. Mescia, P. Panci, "Scalar Rayleigh Dark Matter: current bounds and
+#   future prospects", arXiv:2501.09073 [hep-ph].
+# Digitised from FIGURE 1 (not Fig. 9): "Bounds on Ctilde_{B,W}^{-1/2}, as
+#   defined in Eq. (4), for a scalar Rayleigh DM candidate in the Ctilde_B = 0
+#   (Left panel) and Ctilde_W = 0 (Right panel) planes." Mass axis 10 GeV to
+#   25 TeV; Fig. 1 is the panel pair carrying the thermal-relic line, LZ-2022,
+#   XLZD, Fermi single/double line and CTA GC + dSphs together.
+#   Attribution verified against the published caption 2026-08-11; the previous
+#   header said only "screenshot of Figure 9", which is a different and
+#   narrower figure (10-300 GeV, ID and DD only, no thermal relic).
+# CAVEAT: sparse digitisation, 4-7 points per curve (see README.txt).
 # x: mchi_GeV
 # y: lambda_plot_GeV = Ctilde_W^(-1/2) [GeV], panel with C_B = 0
 # mchi_GeV lambda_plot_GeV

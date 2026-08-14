@@ -1,14 +1,13 @@
 """
-Central EFT validity catalogue for Totani_Scattering scans.
+Central EFT validity catalogue for the photon-DM scattering scans.
 
 The scan scripts use Lambda as the EFT scale for dipole, charge-radius,
 anapole, and Rayleigh operators.  A sampled point is kept only when Lambda is
 above all requested lower-bound curves:
 
   - Lambda > m_scat, the conservative EFT separation guide.
-  - Lambda >= sqrt(kappa * max(s_max, |t|_max)), kinematic EFT validity.
-  - Lambda >= Lambda_unitarity(operator, m_scat), the perturbative unitarity
-    guide used in the existing overlay plots.
+  - Lambda >= sqrt(kappa * max(s_max, |t|_max)), the kinematic EFT-validity
+    condition of Eq. (IV.18). This is the wedge drawn in the paper.
 
 All masses, photon energies, and Lambda values are in GeV.
 """
@@ -31,7 +30,6 @@ EFT_OPERATOR_VALIDITY: dict[str, dict[str, Any]] = {
         "validity_lines": {
             "eft_separation": "Lambda > m_scat",
             "kinematic_eft": "Lambda^2 >= kappa * max(s_max, |t|_max)",
-            "unitarity": "Lambda >= sqrt(16*pi*m_scat)",
         },
     },
     "dipole_electric": {
@@ -43,7 +41,6 @@ EFT_OPERATOR_VALIDITY: dict[str, dict[str, Any]] = {
         "validity_lines": {
             "eft_separation": "Lambda > m_scat",
             "kinematic_eft": "Lambda^2 >= kappa * max(s_max, |t|_max)",
-            "unitarity": "Lambda >= sqrt(16*pi*m_scat)",
         },
     },
     "charge_radius": {
@@ -55,7 +52,6 @@ EFT_OPERATOR_VALIDITY: dict[str, dict[str, Any]] = {
         "validity_lines": {
             "eft_separation": "Lambda > m_scat",
             "kinematic_eft": "Lambda^2 >= kappa * max(s_max, |t|_max)",
-            "unitarity": "Lambda >= (16*pi*m_scat^2)^(1/4)",
         },
     },
     "anapole": {
@@ -67,7 +63,6 @@ EFT_OPERATOR_VALIDITY: dict[str, dict[str, Any]] = {
         "validity_lines": {
             "eft_separation": "Lambda > m_scat",
             "kinematic_eft": "Lambda^2 >= kappa * max(s_max, |t|_max)",
-            "unitarity": "Lambda >= (16*pi*m_scat^2)^(1/4)",
         },
     },
     "rayleigh_even": {
@@ -79,7 +74,6 @@ EFT_OPERATOR_VALIDITY: dict[str, dict[str, Any]] = {
         "validity_lines": {
             "eft_separation": "Lambda > m_scat",
             "kinematic_eft": "Lambda^2 >= kappa * max(s_max, |t|_max)",
-            "unitarity": "Lambda >= (128*pi^2*m_scat^2)^(1/6)",
         },
     },
     "rayleigh_odd": {
@@ -91,7 +85,6 @@ EFT_OPERATOR_VALIDITY: dict[str, dict[str, Any]] = {
         "validity_lines": {
             "eft_separation": "Lambda > m_scat",
             "kinematic_eft": "Lambda^2 >= kappa * max(s_max, |t|_max)",
-            "unitarity": "Lambda >= (128*pi^2*m_scat^2)^(1/6)",
         },
     },
     "rayleigh_full": {
@@ -103,7 +96,6 @@ EFT_OPERATOR_VALIDITY: dict[str, dict[str, Any]] = {
         "validity_lines": {
             "eft_separation": "Lambda > m_scat",
             "kinematic_eft": "Lambda^2 >= kappa * max(s_max, |t|_max)",
-            "unitarity": "Lambda >= (128*pi^2*m_scat^2)^(1/6)",
         },
     },
     "scalar_rayleigh": {
@@ -116,7 +108,6 @@ EFT_OPERATOR_VALIDITY: dict[str, dict[str, Any]] = {
         "validity_lines": {
             "eft_separation": "Lambda > m_scat",
             "kinematic_eft": "Lambda^2 >= kappa * max(s_max, |t|_max)",
-            "unitarity": "Lambda >= (128*pi^2*m_scat^2)^(1/6)",
         },
     },
     "higgs_portal": {
@@ -133,12 +124,21 @@ EFT_OPERATOR_VALIDITY: dict[str, dict[str, Any]] = {
 
 
 def normalise_operator_key(operator: str, dm_type: str | None = None) -> str:
-    """Return the canonical key used by EFT_OPERATOR_VALIDITY."""
+    """Return the canonical key used by EFT_OPERATOR_VALIDITY.
+
+    Lookup is by exact key, never by substring: ``"rayleigh" in key`` would
+    match ``scalar_rayleigh`` and hand a Lambda^-2 operator the dimension-7
+    Lambda^-6 treatment. An unknown operator is a hard error rather than a
+    silent fall-through.
+    """
     op = str(operator).strip()
     if op == "rayleigh" and dm_type == "scalar":
-        return "scalar_rayleigh"
-    if op == "scalar_rayleigh":
-        return "scalar_rayleigh"
+        op = "scalar_rayleigh"
+    if op not in EFT_OPERATOR_VALIDITY:
+        raise KeyError(
+            f"unknown operator {operator!r} (normalised to {op!r}). "
+            f"Known keys: {sorted(EFT_OPERATOR_VALIDITY)}"
+        )
     return op
 
 
@@ -176,20 +176,6 @@ def eft_kinematic_lambda_curve(
     return np.sqrt(float(eft_kinematic_factor) * q2_max)
 
 
-def unitarity_lambda_curve(operator: str, m_chi_arr: np.ndarray | float) -> np.ndarray:
-    """Perturbative-unitarity guide curve for the operator family."""
-    key = normalise_operator_key(operator)
-    m = np.asarray(m_chi_arr, dtype=float)
-    x = np.where(m > 0.0, m, np.nan)
-    if key in ("dipole_magnetic", "dipole_electric"):
-        return np.sqrt(16.0 * np.pi * x)
-    if key in ("charge_radius", "anapole"):
-        return (16.0 * np.pi * x**2) ** 0.25
-    if "rayleigh" in key:
-        return (128.0 * np.pi**2 * x**2) ** (1.0 / 6.0)
-    return np.full_like(x, np.nan, dtype=float)
-
-
 def lambda_min_curve(
     operator: str,
     m_chi_arr: np.ndarray | float,
@@ -199,7 +185,6 @@ def lambda_min_curve(
     eft_kinematic_factor: float = 1.0,
     require_lambda_gt_mdm: bool = True,
     include_kinematic: bool = True,
-    include_unitarity: bool = True,
 ) -> np.ndarray:
     """Combined lower-bound Lambda curve for valid EFT scan points."""
     key = normalise_operator_key(operator, dm_type=dm_type)
@@ -218,9 +203,6 @@ def lambda_min_curve(
                 eft_kinematic_factor=eft_kinematic_factor,
             )
         )
-    if include_unitarity:
-        pieces.append(unitarity_lambda_curve(key, m))
-
     if not pieces:
         return np.zeros_like(m, dtype=float)
     return np.nanmax(np.stack(pieces, axis=0), axis=0)
@@ -236,7 +218,6 @@ def validity_mask(
     eft_kinematic_factor: float = 1.0,
     require_lambda_gt_mdm: bool = True,
     include_kinematic: bool = True,
-    include_unitarity: bool = True,
 ) -> np.ndarray:
     """Return mask[i,j] for valid (m_chi_grid[i], lambda_grid[j]) pairs."""
     key = normalise_operator_key(operator, dm_type=dm_type)
@@ -252,7 +233,6 @@ def validity_mask(
         eft_kinematic_factor=eft_kinematic_factor,
         require_lambda_gt_mdm=require_lambda_gt_mdm,
         include_kinematic=include_kinematic,
-        include_unitarity=include_unitarity,
     )
     return (
         np.isfinite(m[:, None])
@@ -272,7 +252,6 @@ def is_eft_point_valid(
     eft_kinematic_factor: float = 1.0,
     require_lambda_gt_mdm: bool = True,
     include_kinematic: bool = True,
-    include_unitarity: bool = True,
 ) -> bool:
     """Scalar convenience wrapper around validity_mask."""
     mask = validity_mask(
@@ -284,7 +263,6 @@ def is_eft_point_valid(
         eft_kinematic_factor=eft_kinematic_factor,
         require_lambda_gt_mdm=require_lambda_gt_mdm,
         include_kinematic=include_kinematic,
-        include_unitarity=include_unitarity,
     )
     return bool(mask[0, 0])
 
@@ -301,7 +279,6 @@ def sample_valid_lambda_grid(
     eft_kinematic_factor: float = 1.0,
     require_lambda_gt_mdm: bool = True,
     include_kinematic: bool = True,
-    include_unitarity: bool = True,
 ) -> np.ndarray:
     """Log-spaced Lambda grid restricted to the valid range for one m_chi."""
     lower = float(
@@ -313,7 +290,6 @@ def sample_valid_lambda_grid(
             eft_kinematic_factor=eft_kinematic_factor,
             require_lambda_gt_mdm=require_lambda_gt_mdm,
             include_kinematic=include_kinematic,
-            include_unitarity=include_unitarity,
         )[0]
     )
     lo = max(float(lambda_min), lower)

@@ -53,19 +53,19 @@ _ROOT = _HERE.parent
 sys.path.insert(0, str(_ROOT))
 sys.path.insert(0, str(_HERE))
 
-from helpers.trinity_plotting import save_figure, set_paper_style  # noqa: E402
+from helpers.plot_style import save_figure, set_paper_style, theme_ink as _ink, theme_legend_kw  # noqa: E402
 
 BOUNDARY_DIR = _HERE / "constraint_boundaries"
 OUTPUT_DIR = _HERE / "plots"
 
-# Trinity's standard accent palette — mirrors PANEL_CONFIGS / LEGEND_GROUPS in
+# Standard accent palette — mirrors PANEL_CONFIGS / LEGEND_GROUPS in
 # make_paper_style_operator_overlays.py so the two figures read as one set.
 COL_THIS_WORK = "#111111"   # solid black — current 90% CL boundary
 COL_FOLLOWUP  = "#0B7285"   # deep teal   — modest exposure follow-up
 COL_INDIRECT  = "#9B6DFF"   # purple      — indirect-detection / CTA-scale
 COL_COLLIDER  = "#FF7AC6"   # pink        — collider / ambitious future
 COL_COSMOLOGY = "#71D6FF"   # cyan        — cosmology / parametric limit
-COL_VALIDITY  = "#666666"   # grey        — EFT / unitarity guides
+COL_VALIDITY  = "#666666"   # grey        — EFT validity wedge
 COL_EFT_LABEL = "#008B8B"   # teal accent — "EFT valid" annotation
 
 # Mirrors the operator metadata in make_paper_style_operator_overlays.py so
@@ -125,13 +125,20 @@ FCONTOUR_COLOURS = {
 }
 
 
+# Variant tag inserted before "_90cl" when locating boundary files, so the
+# figures can be built from an alternative generation without renaming the
+# production set. Empty string = the published grids. Set by
+# make_paper_results_figures.
+BOUNDARY_SUFFIX = ""
+
+
 def _resolve_boundary_path(halo_profile: str, model_kind: str, dm_type: str,
                            operator: str, majorana: bool,
                            source_tag: str = "halo") -> Path:
     majorana_suffix = "_majorana" if majorana else ""
     name = (
         f"mcmc_{halo_profile}_{source_tag}_{model_kind}_"
-        f"{dm_type}_{operator}{majorana_suffix}_90cl.npz"
+        f"{dm_type}_{operator}{majorana_suffix}{BOUNDARY_SUFFIX}_90cl.npz"
     )
     return BOUNDARY_DIR / name
 
@@ -174,6 +181,22 @@ def _f_required(chi2_grid: np.ndarray, delta_chi2_target: float = 4.61) -> np.nd
     return f
 
 
+# Photon-energy ceiling [GeV] that positions the EFT kinematic-validity guide.
+# None keeps whatever each boundary file was generated with (the full LAT band,
+# ~494 GeV). The master figure script sets this so every operator panel quotes
+# one ceiling. This moves the DRAWN GUIDE only -- the limit curves themselves
+# are not recomputed, so a value below the generation ceiling means the guide
+# is stricter than the band the boundaries were derived over.
+OMEGA_MAX_OVERRIDE = None
+
+
+def _resolve_omega_max(stored) -> float:
+    """Ceiling for the validity guide: the override if set, else the stored value."""
+    if OMEGA_MAX_OVERRIDE is not None:
+        return float(OMEGA_MAX_OVERRIDE)
+    return float(stored)
+
+
 def _eft_validity_curve(omega_max: float, eft_factor: float, mchi_arr: np.ndarray) -> np.ndarray:
     mchi = np.asarray(mchi_arr, dtype=float)
     s_max = mchi**2 + 2.0 * mchi * omega_max
@@ -181,18 +204,6 @@ def _eft_validity_curve(omega_max: float, eft_factor: float, mchi_arr: np.ndarra
     t_max = 4.0 * omega_max**2 / denom
     q2_max = np.maximum(s_max, t_max)
     return np.sqrt(eft_factor * q2_max)
-
-
-def _unitarity_curve(operator: str, mchi_arr: np.ndarray) -> tuple[np.ndarray | None, str | None]:
-    mchi = np.asarray(mchi_arr, dtype=float)
-    x = np.where(mchi > 0, mchi, np.nan)
-    if operator in ("dipole_magnetic", "dipole_electric"):
-        return np.sqrt(16.0 * np.pi * x), "Unitarity (dipole)"
-    if operator in ("anapole", "charge_radius"):
-        return (16.0 * np.pi * x**2) ** 0.25, "Unitarity (dim-6)"
-    if "rayleigh" in operator:
-        return (128.0 * np.pi**2 * x**2) ** (1.0 / 6.0), "Unitarity (Rayleigh)"
-    return None, None
 
 
 def plot_sensitivity_panel(ax, operator_key: str, halo_profile: str,
@@ -211,7 +222,7 @@ def plot_sensitivity_panel(ax, operator_key: str, halo_profile: str,
                            annotate_validity: bool = True,
                            validity_fill_color: str = "cyan",
                            validity_line_color: str | None = None,
-                           unitarity_line_color: str | None = None):
+                           ):
     """Draw a single f_required(m_chi, Lambda) sensitivity panel.
 
     ``contour_colours`` maps exposure levels (float) to matplotlib colours.
@@ -240,7 +251,7 @@ def plot_sensitivity_panel(ax, operator_key: str, halo_profile: str,
     mchi_axis = np.asarray(data["grid_mchi_GeV"], dtype=float)
     lambda_axis = np.asarray(data["grid_lambda_GeV"], dtype=float)
     eft_mask = np.asarray(data["eft_valid_mask"], dtype=bool)
-    omega_max = float(data["omega_max_for_validity"])
+    omega_max = _resolve_omega_max(data["omega_max_for_validity"])
     eft_factor = float(data["eft_kinematic_factor"])
     delta_chi2_target = float(data["delta_chi2_threshold"])
 
@@ -286,20 +297,12 @@ def plot_sensitivity_panel(ax, operator_key: str, halo_profile: str,
         except Exception:
             continue
 
-    # EFT-valid wedge bounded by kinematic-validity and unitarity guides
+    # EFT-valid wedge, Eq. (IV.18): Lambda^2 >= max(s_max, |t|_max)
     xgrid = np.logspace(np.log10(mchi_axis.min()), np.log10(mchi_axis.max()), 400)
-    lam_kin = _eft_validity_curve(omega_max, eft_factor, xgrid)
-    lam_unit, unit_label = _unitarity_curve(cfg["operator"], xgrid)
+    floor = _eft_validity_curve(omega_max, eft_factor, xgrid)
     guide_color = validity_line_color or COL_VALIDITY
-    unitarity_color = unitarity_line_color or guide_color
-    ax.plot(xgrid, lam_kin, color=guide_color, lw=1.8, ls="--",
+    ax.plot(xgrid, floor, color=guide_color, lw=1.8, ls="--",
             label="EFT kinematic validity", zorder=4)
-    if lam_unit is not None:
-        ax.plot(xgrid, lam_unit, color=unitarity_color, lw=1.4, ls=":",
-                label=unit_label, zorder=4)
-        floor = np.maximum(lam_kin, lam_unit)
-    else:
-        floor = lam_kin
     ax.fill_between(
         xgrid, floor, np.full_like(floor, lambda_plot_axis.max()),
         color=validity_fill_color, alpha=0.3, zorder=2,
@@ -316,7 +319,13 @@ def plot_sensitivity_panel(ax, operator_key: str, halo_profile: str,
     ax.set_ylim(lambda_plot_axis.min(), lambda_plot_axis.max())
     ax.set_title(title_override or cfg["title"], fontsize=title_fontsize)
     ax.set_xlabel(r"$m_{\chi}$ [GeV]", fontsize=axis_label_fontsize)
-    ax.set_ylabel(r"$\Lambda/C^{1/n}$ [GeV]", fontsize=axis_label_fontsize)
+    # The rescaling applied is c^{-coefficient_power}, with coefficient_power
+    # = 1/n and n = d-4: 1/1 for the dim-5 dipoles, 1/2 for the dim-6 scalar
+    # Rayleigh, 1/3 for the dim-7 family. The dipoles carry c^4 in tau (two
+    # insertions, mu = 2c/Lambda) rather than the c^2 of the single-insertion
+    # Rayleigh operators, so no single c^q covers every panel -- c^{1/n} does,
+    # and it is the form the Fig. 2 caption uses.
+    ax.set_ylabel(r"$\Lambda/(c^{1/n} f_{\rm scat}^{1/p})$ [GeV]", fontsize=axis_label_fontsize)
     ax.grid(True, which="both", alpha=0.3)
     if tick_labelsize is not None:
         ax.tick_params(axis="both", which="both", labelsize=tick_labelsize)
@@ -345,9 +354,9 @@ def main():
     parser.add_argument("--cmap", default="plasma_r",
                         help="Matplotlib colormap. Default: plasma_r (dark = currently testable, light = out of reach).")
     parser.add_argument("--outfile", default=None,
-                        help="Output basename inside Totani_Scattering/plots/. Default depends on --paper-summary.")
+                        help="Output basename inside plots/. Default depends on --paper-summary.")
     parser.add_argument("--style", default=None,
-                        help="trinity_plotting style: paper / conference / conference_light. Default: paper.")
+                        help="plot_style style: paper / conference / conference_light. Default: paper.")
     # Print-geometry overrides (used by make_paper_results_figures.py to force
     # PRD revtex4 column widths). If None, fall back to the internal defaults.
     parser.add_argument("--fig-width", type=float, default=None,
@@ -361,7 +370,7 @@ def main():
     args = parser.parse_args()
 
     if args.style:
-        os.environ["TRINITY_PLOT_STYLE"] = args.style
+        os.environ["EFT_PLOT_STYLE"] = args.style
 
     if args.operators is None:
         args.operators = PAPER_SUMMARY_OPERATORS if args.paper_summary else DEFAULT_OPERATORS
@@ -473,7 +482,7 @@ def main():
     # legend. Font size follows base_fs so it matches the tick / label sizing.
     legend_fs = base_fs
     # Shared legend styling (Totani make_paper_results_figures convention).
-    LEGEND_KW = dict(frameon=True, framealpha=0.6, facecolor="white", edgecolor="0.7")
+    LEGEND_KW = dict(**theme_legend_kw())
     leg = None
     if contour_handles_acc:
         seen = {}

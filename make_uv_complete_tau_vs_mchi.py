@@ -22,7 +22,7 @@ from matplotlib.patches import Patch
 from scipy.integrate import quad
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from helpers.trinity_plotting import set_paper_style
+from helpers.plot_style import set_paper_style, theme_ink as _ink, theme_legend_kw
 
 
 # ---------------------------------------------------------------------------
@@ -76,14 +76,14 @@ def resolve_plot_config(*, base_fontsize=None, linewidth=None,
     Overrides (all optional):
       base_fontsize   — rescales FONT_PRESETS['paper'] label/legend/tick sizes
                         so that "label" ≈ base_fontsize + 1 (matches the
-                        internal scaling of the trinity paper style).
+                        internal scaling of the paper style).
       linewidth       — set_paper_style linewidth argument.
       fig_width,      — figsize override; if both provided, replaces the
       fig_height        default (6.4, 5.4).
     """
     lw = 1.6 if linewidth is None else float(linewidth)
     # Pass base_fontsize through so this figure matches the rest of the paper
-    # set (Times New Roman via trinity paper styling at the same base size).
+    # set (Times New Roman via the paper style at the same base size).
     bfs = 10.0 if base_fontsize is None else float(base_fontsize)
     set_paper_style(base_fontsize=bfs, linewidth=lw, n_colors=12, cmap_name="plasma")
     cmap = plt.get_cmap("plasma")
@@ -382,16 +382,16 @@ def make_plot(
                label=r"Higgs portal (saturated)"),
         Line2D([0], [0], color=colors["grav"], lw=2.0,
                label=r"Gravitational (PQG)"),
-        Line2D([0], [0], color="0.15", lw=1.6, ls="-",
+        Line2D([0], [0], color=_ink("0.15"), lw=1.6, ls="-",
                label="Galactic baseline"),
-        Line2D([0], [0], color="0.15", lw=1.6, ls="--",
+        Line2D([0], [0], color=_ink("0.15"), lw=1.6, ls="--",
                label="Cosmological baseline"),
         Line2D([0], [0], color=colors["threshold"], lw=1.4, ls=":",
                label=r"Fermi-LAT threshold $\tau_{\rm obs} \sim 10^{-2}$"),
     ]
     # Shared legend styling (Totani make_paper_results_figures convention) so
     # this figure matches the rest of the paper set.
-    LEGEND_KW = dict(frameon=True, framealpha=0.6, facecolor="white", edgecolor="0.7")
+    LEGEND_KW = dict(**theme_legend_kw())
     legend_kwargs = dict(
         handles=handles,
         loc=legend_loc,
@@ -408,7 +408,7 @@ def make_plot(
     fig.savefig(output_png, dpi=220, bbox_inches="tight")
     # Also emit a vector PDF alongside the PNG so LaTeX can include it as a
     # first-class member of the paper figure set (same font/geometry as the
-    # other trinity-paper-styled PDFs).
+    # other paper-styled PDFs).
     output_pdf = os.path.splitext(output_png)[0] + ".pdf"
     fig.savefig(output_pdf, bbox_inches="tight")
     plt.close(fig)
@@ -417,7 +417,7 @@ def make_plot(
 def main():
     args = parse_args()
     if args.style:
-        os.environ["TRINITY_PLOT_STYLE"] = args.style
+        os.environ["EFT_PLOT_STYLE"] = args.style
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     plot_dir = os.path.join(repo_root, "plots")
     os.makedirs(plot_dir, exist_ok=True)
