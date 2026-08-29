@@ -263,13 +263,6 @@ GENERATED_LIMIT_SPECS = {
 }
 
 
-def np_array_flexible(*args, **kwargs):
-    """Support detection files that use np.array(a, b, c) instead of a list."""
-    if len(args) > 1:
-        return np.array(list(args), **kwargs)
-    return np.array(*args, **kwargs)
-
-
 def finite_positive_curve(mchi, lambda_plot):
     mchi = np.asarray(mchi, dtype=float)
     lambda_plot = np.asarray(lambda_plot, dtype=float)
@@ -328,10 +321,12 @@ def _text_limit_entry(path: Path, operator_key: str, spec: dict):
 def _load_detection_namespaces():
     namespaces = {}
     for py_file in sorted(DETECTION_DIR.glob("*.py")):
-        namespace = {"np": np, "np_array_flexible": np_array_flexible}
-        source = py_file.read_text()
-        source = source.replace("np.array(", "np_array_flexible(")
-        exec(source, namespace, namespace)
+        # No source rewriting.  A detection file that will not execute as
+        # written is information, not an inconvenience to route around: the
+        # previous shim silently made non-executable files run, which is how a
+        # family of unsourced curves reached the figures.
+        namespace = {"np": np}
+        exec(py_file.read_text(), namespace, namespace)
         namespaces[py_file.stem] = namespace
     return namespaces
 
