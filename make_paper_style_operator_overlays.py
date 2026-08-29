@@ -49,7 +49,7 @@ COLLIDER_ALT = "#FF9AD5"
 COLLIDER_DEEP = "#E754A8"
 COLLIDER_SOFT = "#FFB6E2"
 COSMOLOGY_COLOR = "#71D6FF"
-BODDY_GLUSCEVIC_COLOR = "#71D6FF"
+CMB_ELASTIC_COLOR = "#71D6FF"
 THERMAL_COLOR = "#59C7D8"
 THIS_WORK_COLOR = "black"
 THIS_WORK_ALT = "black"
@@ -956,10 +956,10 @@ def plot_panel(
             h_cmb, = ax.loglog(
                 mchi_cmb,
                 lambda_cmb,
-                color=BODDY_GLUSCEVIC_COLOR,
+                color=CMB_ELASTIC_COLOR,
                 lw=2.1,
                 ls="-.",
-                label="CMB (Boddy & Gluscevic 2018)",
+                label="CMB elastic (Wilkinson+ 2014)",
             )
             handles.append(set_legend_group(h_cmb, "cosmology"))
 

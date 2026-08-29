@@ -948,7 +948,7 @@ def f3_halo_constraints(out_dir: Path) -> Path:
     _mp.DIRECT_COLOR           = COL_DIRECT
     _mp.COLLIDER_COLOR         = COL_COLLIDER
     _mp.COSMOLOGY_COLOR        = COL_COSMOLOGY
-    _mp.BODDY_GLUSCEVIC_COLOR  = COL_COSMOLOGY   # direct-drawn CMB curve (Boddy & Gluscevic 2018)
+    _mp.CMB_ELASTIC_COLOR      = COL_COSMOLOGY   # direct-drawn CMB elastic curve (Wilkinson+ 2014)
     _mp.THIS_WORK_COLOR        = COL_THIS_WORK
     _mp.GUIDE_COLOR            = COL_GUIDE
     _mp.EFT_VALID_LABEL_COLOR  = COL_EFT_LABEL

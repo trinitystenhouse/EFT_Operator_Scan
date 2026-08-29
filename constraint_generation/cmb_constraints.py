@@ -5,16 +5,32 @@ Physical basis
 --------------
 DM-photon scattering modifies the CMB TT power spectrum by dragging the DM
 component and suppressing small-scale structure. The constraint is parameterised
-using the Planck 2018 bounds reported by Boddy & Gluscevic (2018),
-arXiv:1801.08609.
+using the published Planck bound on DM-photon elastic scattering from
+Wilkinson, Boehm & Lesgourgues (2014), arXiv:1309.7588, JCAP 04 (2014) 026.
 
 Cross-section parameterisation:  sigma = sigma_0 * (T / T_CMB_0)^n
 where T_CMB_0 = 2.726 K = 2.349e-4 eV is the present CMB temperature.
 
 The Planck bound is on sigma_0 / m_chi [cm^2/GeV]:
-  n=2 (dipole operators):                sigma_0/m_chi < 1.5e-23  cm^2/GeV
-  n=4 (charge radius, anapole, Rayleigh): sigma_0/m_chi < 3.0e-14  cm^2/GeV
-  n=6 (Rayleigh-odd):                    no meaningful published bound
+  n=2 (dipole operators):                sigma_0/m_chi < 6.0e-40  cm^2/GeV
+  n=4 (scalar / parity-even Rayleigh):   NO published DM-photon bound
+  n=6 (Rayleigh-odd):                    NO published DM-photon bound
+
+CORRECTED 2026-08-27.  The previous values (1.5e-23 for n=2, 3.0e-14 for n=4)
+were attributed to Boddy & Gluscevic (2018), arXiv:1801.08609, Table 1.  That
+paper constrains dark matter-PROTON scattering in the non-relativistic
+direct-detection EFT, parametrised in powers of the RELATIVE VELOCITY, using
+Planck 2015 -- a different interaction, a different variable and a different
+dataset from the DM-photon, temperature-scaled bound applied here.  The numbers
+appeared nowhere else in the repository and had no derivation.  Using them put
+the drawn dipole boundary 4.10 dex too low (a factor 1.26e4 in Lambda, since
+sigma ~ Lambda^-4).
+
+Wilkinson et al. publish two DM-photon bounds: sigma < 8e-31 (m/GeV) cm^2 for a
+constant cross section, and sigma < 6e-40 (m/GeV) cm^2 (68% CL) for a
+present-day value if sigma ~ T^2.  The latter is the n=2 case used here.  They
+publish NO bound for T^4 or T^6 scaling, so the Rayleigh operators now return an
+empty boundary, consistent with the treatment n=6 already received.
 
 Energy-scaling indices per operator (sigma ~ E^n for E << m_chi):
   dipole_magnetic, dipole_electric : n=2
@@ -77,14 +93,17 @@ OPERATOR_N = {
     "scalar_rayleigh":  4,
 }
 
-# Planck 2018 bounds on sigma_0 / m_chi [cm^2/GeV]
-# Source: Boddy & Gluscevic 2018, arXiv:1801.08609, Table 1.
-#   n=2: 1.5e-23 cm^2/GeV
-#   n=4: 3.0e-14 cm^2/GeV
-#   n=6: no published bound (interaction at T_CMB_0 is negligibly small)
+# Planck bounds on sigma_0 / m_chi [cm^2/GeV] for DM-PHOTON elastic scattering.
+# Source: Wilkinson, Boehm & Lesgourgues 2014, arXiv:1309.7588, abstract:
+#   "a present-day value of sigma_DM-photon < 6 x 10^-40 (m_DM/GeV) cm^2
+#    (68% CL) if it scales as the temperature squared."
+#   n=2: 6.0e-40 cm^2/GeV
+#   n=4: no published DM-photon bound for T^4 scaling  -> None
+#   n=6: no published DM-photon bound for T^6 scaling  -> None
+# Do NOT substitute a DM-proton bound here; see the module docstring.
 CMB_U_MAX = {
-    2: 1.5e-23,
-    4: 3.0e-14,
+    2: 6.0e-40,
+    4: None,
     6: None,
 }
 
@@ -123,12 +142,16 @@ def cmb_exclusion_boundary_analytic(m_chi_arr, *, dm_type="fermionic",
     """
     Invert the Planck bound sigma_0/m_chi < u_max at E = T_CMB_0.
 
-    The inversion is NUMERICAL, off sigma_at_cmb() [which returns cm^2 from the
-    real-photon cross sections], using the exact power law sigma ~
-    Lambda^-lambda_power:
+    REWRITTEN 2026-07-17 (real-photon amplitude correction, see
+    VERIFICATION_eft_realphoton_fix.md): the previous closed-form expressions
+    hard-coded the WRONG amplitudes (the transcribed direct-detection cross
+    sections with the spurious 4*ALPHA_EM prefactor) and omitted the
+    GeV^-2 -> cm^2 conversion.  This version inverts NUMERICALLY off
+    sigma_at_cmb() [which returns cm^2 from the corrected cross sections]
+    using the exact power-law sigma ~ Lambda^-lambda_power:
         Lambda_crit = Lambda_ref * [ sigma(Lambda_ref) / (u_max * m_chi) ]^(1/lambda_power)
     Anapole and charge radius scatter real photons with EXACTLY ZERO tree-level
-    cross section, so they return an empty boundary.
+    cross section, so they now (correctly) return an empty boundary.
 
     Returns
     -------
@@ -160,6 +183,13 @@ def cmb_exclusion_boundary_analytic(m_chi_arr, *, dm_type="fermionic",
     if key in ("charge_radius", "anapole", "rayleigh_odd"):
         return np.empty((0, 2))
 
+    # n=4 operators (scalar Rayleigh, parity-even Rayleigh): no published
+    # DM-photon bound for T^4 scaling, so no curve is drawn.  This is the same
+    # treatment n=6 has always had; the previous n=4 curve used a DM-proton
+    # number.  See the module docstring.
+    if CMB_U_MAX.get(n) is None:
+        return np.empty((0, 2))
+
     # Numeric inversion off the corrected cross sections (cm^2), exact because
     # sigma is a pure power law in Lambda.
     meta = _operator_metadata(
@@ -181,7 +211,7 @@ def cmb_exclusion_boundary_analytic(m_chi_arr, *, dm_type="fermionic",
         with np.errstate(divide="ignore", invalid="ignore"):
             lam_crit[i] = LAMBDA_REF * (sig_ref / (u_max * m)) ** (1.0 / lam_power)
     if majorana and "rayleigh" in key:
-        lam_crit = lam_crit / (2.0 ** (1.0 / 12.0))  # Majorana convention, Sec. IV A
+        lam_crit = lam_crit / (2.0 ** (1.0 / 12.0))  # unchanged legacy Majorana convention
 
     mask = np.isfinite(lam_crit) & (lam_crit > 0.0)
     if not np.any(mask):
@@ -230,7 +260,8 @@ def save_cmb_boundary_npz(boundary, dm_type, operator, *,
         c_phi = float(c_phi),
         n_energy_scaling = OPERATOR_N.get(operator, -1),
         u_max_cm2_per_GeV = CMB_U_MAX.get(OPERATOR_N.get(operator, -1), np.nan),
-        reference = "Boddy & Gluscevic 2018, arXiv:1801.08609, Planck 2018",
+        reference = ("Wilkinson, Boehm & Lesgourgues 2014, arXiv:1309.7588, "
+                     "Planck 2013 (sigma ~ T^2, 68% CL)"),
     )
     print(f"  [CMB] Saved: {outpath.name}")
     return outpath
