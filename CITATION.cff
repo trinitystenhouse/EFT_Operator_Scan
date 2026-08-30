@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: "EFT_Operator_Scan: photon-dark-matter elastic scattering, effective-operator scan and Galactic-halo sensitivity"
+abstract: >-
+  Analysis code and figure-generation scripts reproducing every figure in
+  "Photon-Dark Matter Elastic Scattering: An Effective-Operator Scan and First
+  Operator-Resolved Sensitivity Estimates from the Galactic Halo".
+type: software
+license: MIT
+repository-code: "https://github.com/trinitystenhouse/EFT_Operator_Scan"
+authors:
+  - family-names: Stenhouse
+    given-names: Trinity
+    affiliation: "Department of Physics and Astronomy, University College London"
+    orcid: "https://orcid.org/0009-0007-5174-739X"
+keywords:
+  - dark matter
+  - effective field theory
+  - gamma-ray astronomy
+  - photon-dark matter scattering
+  - Galactic halo

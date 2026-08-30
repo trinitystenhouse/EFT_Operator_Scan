@@ -1,0 +1,27 @@
+{
+  "title": "EFT_Operator_Scan: photon-dark-matter elastic scattering, effective-operator scan and Galactic-halo sensitivity",
+  "description": "Analysis code and figure-generation scripts reproducing every figure in \"Photon-Dark Matter Elastic Scattering: An Effective-Operator Scan and First Operator-Resolved Sensitivity Estimates from the Galactic Halo\". Includes the operator cross sections, the two-channel removal and ROI-recovery treatment, the halo and IGRB scans, the digitised external constraint set with per-curve provenance, and the paper figure pipeline.",
+  "upload_type": "software",
+  "license": "MIT",
+  "creators": [
+    {
+      "name": "Stenhouse, Trinity",
+      "affiliation": "Department of Physics and Astronomy, University College London",
+      "orcid": "0009-0007-5174-739X"
+    }
+  ],
+  "keywords": [
+    "dark matter",
+    "effective field theory",
+    "gamma-ray astronomy",
+    "photon-dark matter scattering",
+    "Galactic halo"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/trinitystenhouse/EFT_Operator_Scan",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ]
+}
