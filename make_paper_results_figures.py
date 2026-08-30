@@ -146,6 +146,7 @@ COL_DIRECT    = "#F2D53C"   # yellow
 COL_INDIRECT  = "#9B6DFF"   # purple
 COL_COSMOLOGY = "#F26D0C"   # orange -- distinct from COL_DIRECT/COL_COLLIDER so cosmology curves stand out
 COL_GUIDE     = "#666666"   # grey (EFT validity wedge)
+COL_THERMAL   = "#7DDC84"   # green -- thermal-relic theory line (limits.THERMAL_COLOR)
 COL_EFT_LABEL = 'cyan'   # teal accent for "EFT valid" annotation
 COL_EXCLUSION = 'cyan'   # cyan for excluded regions
 COL_FOLLOWUP  = "#0B7285"   # deep teal for modest exposure follow-up
@@ -252,7 +253,11 @@ FIG3_PROFILES = ["pixelwise_global_rho2", "pixelwise_global_rho2.5"]
 FIG3_OPERATORS = ["dipole_magnetic", "rayleigh_full_majorana", "scalar_rayleigh"]
 FIG3_PROFILE_COLORS = {
     "pixelwise_global_rho2": COL_THIS_WORK,
-    "pixelwise_global_rho2.5": plasma_color(0.4),
+    # Was plasma_color(0.4): sampling the colormap moves ALONG the ramp under
+    # the dark styles, landing beside COL_COSMOLOGY so this work's contour and
+    # the CMB curves read as one family. Fixed hue instead. Synced from the
+    # working repo 2026-08-30 so the released figure matches the published one.
+    "pixelwise_global_rho2.5": "#2E6FE8",
 }
 
 # Fig 4 multi-dataset overlay
@@ -627,7 +632,7 @@ def _apply_paper_style(style="paper"):
     # from the refreshed values rather than leaving them pointing at print ink.
     FIG3_PROFILE_COLORS = {
         "pixelwise_global_rho2": COL_THIS_WORK,
-        "pixelwise_global_rho2.5": plasma_color(0.4),
+        "pixelwise_global_rho2.5": "#2E6FE8",   # synced 2026-08-30, was plasma_color(0.4)
     }
     FIG4_DATASET_COLOURS = {
         "halo": FIG3_PROFILE_COLORS["pixelwise_global_rho2"],
@@ -1142,6 +1147,51 @@ def f3_halo_constraints(out_dir: Path) -> Path:
     # opposite sides of this work's contour -- the elastic-scattering limit far
     # below it and the annihilation limit far above -- so a single entry reading
     # "Cosmology" would be ambiguous exactly where a reader looks.
+    # --- group recolouring: make the curves match the legend ---------------
+    # The bottom-strip legend below is a set of hand-made category proxies in
+    # the COL_* palette. plot_panel, however, draws each curve in its own
+    # per-experiment colour, resolved by constraints_data.limits._style_for_path
+    # against that module's STYLE_HINTS table. Rewriting _mp.STYLE_HINTS above
+    # never reached those curves: it rebinds a table on the overlay module,
+    # which is a different object from the one _style_for_path reads. The
+    # result was a legend that described no curve on the canvas -- the Planck
+    # annihilation bound rendered light blue (#71D6FF) under an orange key, and
+    # LZ rendered #FFB347, nearer the cosmology key than the direct-detection
+    # key it belongs to.
+    #
+    # Recolour by constraint_type after the panels are drawn rather than by
+    # mutating the table, so the result does not depend on when limits.py
+    # resolves or caches a style. Line styles are left alone: LZ vs XENONnT and
+    # Fermi vs H.E.S.S. stay distinguishable within a group, which is exactly
+    # what a grouped legend promises.
+    from constraints_data import limits as _limits
+    _GROUP_COL = {
+        "collider":           COL_COLLIDER,
+        "direct_detection":   COL_DIRECT,
+        "indirect_detection": COL_INDIRECT,
+        "cosmology":          COL_COSMOLOGY,
+        "thermal_relic":      COL_THERMAL,
+    }
+    # label -> constraint_type, from the same table that coloured the curves.
+    _label_group, _canon = {}, {}
+    for _lbl, _c, _ls, _ctype in _limits.STYLE_HINTS.values():
+        _label_group[_lbl.strip().casefold()] = _ctype
+        _canon[_lbl.strip().casefold()] = _lbl
+    for _ax in axes[:n]:
+        for _ln in _ax.get_lines():
+            _raw = _ln.get_label()
+            _key = _raw.strip().casefold()
+            if _key not in _label_group:
+                continue
+            _grp = _label_group[_key]
+            if _grp in _GROUP_COL:
+                _ln.set_color(_GROUP_COL[_grp])
+            # The thermal relic reaches the axes twice, from the CB0 and CW0
+            # files, with labels differing only in case. Canonicalise so a
+            # non-compact legend path cannot print it as two entries.
+            if not _raw.startswith("_") and _raw != _canon[_key]:
+                _ln.set_label(_canon[_key])
+
     from matplotlib.lines import Line2D as _L2D
     _fig3_categories = [
         _L2D([0], [0], color=COL_COLLIDER, lw=2.0, label="Collider"),
@@ -1152,6 +1202,12 @@ def f3_halo_constraints(out_dir: Path) -> Path:
         # the cosmology colour by design.
         _L2D([0], [0], color=COL_COSMOLOGY, lw=2.0, ls="-.",
              label="CMB, elastic scattering"),
+        # Drawn in the scalar Rayleigh panel since the CB0/CW0 curves were
+        # restored, but it had no legend entry at all, so the only green on
+        # the canvas was unexplained. It keeps its own colour rather than a
+        # group colour: it is a theory line, not an experimental exclusion.
+        _L2D([0], [0], color=COL_THERMAL, lw=2.0, ls=(0, (1, 1)),
+             label="Thermal relic"),
     ]
     # Explicit column placement. matplotlib fills column-major over
     # ceil(8/3) = 3 rows, so the running order fixes the columns:
@@ -1169,7 +1225,7 @@ def f3_halo_constraints(out_dir: Path) -> Path:
         _fig3_categories[:3]                              # col 1
         + [_fig3_categories[3], _by.get("CMB, annihilation")]
         + _tw[:1]                                         # col 2
-        + [_by.get(FIG3_THERM_LABEL)] + _tw[1:2]          # col 3
+        + [_fig3_categories[4], _by.get(FIG3_THERM_LABEL)] + _tw[1:2]   # col 3
     )
     _fig3_ordered = [h for h in _fig3_ordered if h is not None]
     draw_bottom_grouped_legend(
