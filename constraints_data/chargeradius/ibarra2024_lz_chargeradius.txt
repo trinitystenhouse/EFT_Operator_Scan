@@ -1,0 +1,26 @@
+# CITATION SUSPECT (audit 2026-08-11): this file is not a digitisation.
+#   Evidence: all four ibarra2024_lz_* files share one x-grid
+#   (5, 10, 30, 100, 300, 1000, 3000, 1e4 GeV) and every y-value across all
+#   four is drawn from {1.0,1.2,1.5,2.0,2.5,3.0,4.0,5.0,6.0,8.0}x10^n.
+#   Digitising a curve yields irregular values; these are round. All four also
+#   peak at exactly m_chi = 1e3 GeV and fall identically beyond it, i.e. one
+#   shape rescaled per operator rather than four independent readings.
+#   Fig. 3 of arXiv:2408.15760 ends at m_chi = 1e3 GeV, so the last two points
+#   of every file lie outside the range of the figure they claim, and the panel
+#   attributions do not all match the operators shown.
+#   Re-digitise from the published PDF over its actual range, or delete.
+# Ibarra, Reichard, Tomar (2024) arXiv:2408.15760, JCAP 2025
+# LZ direct detection constraint (90% CL), nuclear recoils + Migdal effect
+# Operator: Dirac/Majorana charge radius (dim-6)
+# y-axis convention: Lambda / C_cr^(1/2)  [GeV]
+# Note: charge radius is SI-coherent -> strongest DD constraint among dim-6 operators
+# Values read from Fig.3 bottom-left panel
+# mchi_GeV  lambda_plot_GeV
+5.0e0   5.0e3
+1.0e1   1.2e4
+3.0e1   4.0e4
+1.0e2   1.2e5
+3.0e2   2.5e5
+1.0e3   3.0e5
+3.0e3   2.0e5
+1.0e4   1.2e5

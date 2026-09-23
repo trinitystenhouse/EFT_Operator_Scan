@@ -1,0 +1,15 @@
+# Arina et al. 2020 (arXiv:2005.12789) - Fig. 14 and Eq. 11
+# LEP invisible Z-decay width constraint (Gamma_inv < 2 MeV)
+# Applies for mchi < mZ/2 = 45.6 GeV
+# From paper: Lambda/C_A^(1/2) > 315 GeV, Lambda/C_cr^(1/2) > 370 GeV for dim-6
+#             Lambda/C_M,el > 1000 GeV for dim-5
+# This file is for the ANAPOLE (Majorana)
+# y-axis convention: Lambda / C_A^(1/2)  [GeV]
+# mchi_GeV  lambda_plot_GeV
+1.0e-3  3.15e2
+1.0e-2  3.15e2
+1.0e-1  3.15e2
+1.0e0   3.15e2
+1.0e1   3.15e2
+4.0e1   3.15e2
+4.56e1  3.15e2

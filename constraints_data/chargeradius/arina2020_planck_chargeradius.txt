@@ -1,0 +1,11 @@
+# Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (bottom right)
+# Planck CMB constraint on DM annihilation during recombination (95% CL)
+# Operator: Dirac charge radius (dim-6), s-wave
+# y-axis convention: Lambda / C_cr^(1/2)  [GeV]
+# mchi_GeV  lambda_plot_GeV
+5.0e-1  2.0e1
+1.0e0   4.0e1
+3.0e0   1.0e2
+1.0e1   3.0e2
+3.0e1   7.0e2
+1.0e2   1.2e3

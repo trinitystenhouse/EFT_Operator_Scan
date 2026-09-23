@@ -1,0 +1,55 @@
+file	status	source_as_recorded_in_the_file_header	arxiv	figure
+anapole/arina2020_lep_zdecay_anapole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 14 and Eq. 11	2005.12789	Fig. 14
+anapole/arina2020_monojet_anapole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 5	2005.12789	Fig. 5
+anapole/arina2020_xenon1t_anapole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 10	2005.12789	Fig. 10
+anapole/hambye_2021_anapole.txt	refused by the loader guard	Hambye et al. 2021, XENON1T Anapole Recast		
+anapole/ibarra2024_lz_anapole.txt	refused by the loader guard	CITATION SUSPECT (audit 2026-08-11): this file is not a digitisation.	2408.15760	Fig. 3
+anapole/xenonnt_2023_anapole.txt	refused by the loader guard	XENON Collaboration 2023 (XENONnT WIMP Search)	2303.14729	
+anapole/xenonnt_anapole_majorana.txt	refused by the loader guard	XENONnT Constraints on Majorana Anapole Moment	2207.11330	
+chargeradius/arina2020_ams02_chargeradius.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (bottom right)	2005.12789	Fig. 13
+chargeradius/arina2020_fermilat_chargeradius.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (bottom right)	2005.12789	Fig. 13
+chargeradius/arina2020_lep_zdecay_chargeradius.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 14 and Eq. 11	2005.12789	Fig. 14
+chargeradius/arina2020_monojet_chargeradius.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 5	2005.12789	Fig. 5
+chargeradius/arina2020_planck_chargeradius.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (bottom right)	2005.12789	Fig. 13
+chargeradius/arina2020_xenon1t_chargeradius.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 10	2005.12789	Fig. 10
+chargeradius/fortin_tait_2012_charge_radius.txt	refused by the loader guard	Fortin & Tait 2012 (Direct Detection, XENON100 recast)	1103.3289	
+chargeradius/ibarra2024_lz_chargeradius.txt	refused by the loader guard	CITATION SUSPECT (audit 2026-08-11): this file is not a digitisation.	2408.15760	Fig. 3
+chargeradius/lhc_monojet_chargeradius.txt	refused by the loader guard	LHC CMS Mono-Jet Constraints on Dirac Charge Radius		
+eldipole/arina2020_fermilat_eldipole_lines.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (bottom left)	2005.12789	Fig. 13
+eldipole/arina2020_hess_lines_eldipole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (bottom left)	2005.12789	Fig. 13
+eldipole/arina2020_lep_zdecay_dipole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 14 and Eq. 11	2005.12789	Fig. 14
+eldipole/arina2020_monojet_eldipole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 5	2005.12789	Fig. 5
+eldipole/arina2020_xenon1t_eldipole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 10	2005.12789	Fig. 10
+eldipole/ibarra2024_lz_eldipole.txt	refused by the loader guard	CITATION SUSPECT (audit 2026-08-11): this file is not a digitisation.	2408.15760	Fig. 3
+magdipole/arina2020_ams02_magdipole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (top left)	2005.12789	Fig. 13
+magdipole/arina2020_fermi_lines_magdipole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (top right)	2005.12789	Fig. 13
+magdipole/arina2020_fermilat_magdipole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (top left)	2005.12789	Fig. 13
+magdipole/arina2020_hess_lines_magdipole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (top right)	2005.12789	Fig. 13
+magdipole/arina2020_lep_zdecay_dipole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 14 and Eq. 11	2005.12789	Fig. 14
+magdipole/arina2020_monojet_magdipole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 5	2005.12789	Fig. 5
+magdipole/arina2020_planck_magdipole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (top left)	2005.12789	Fig. 13
+magdipole/arina2020_xenon1t_magdipole.txt	loaded	Arina et al. 2020 (arXiv:2005.12789) - Fig. 10	2005.12789	Fig. 10
+magdipole/fermilat_hess_magdipole.txt	refused by the loader guard	Fermi-LAT dSphs + H.E.S.S. GC Combined Constraints on Dirac Magnetic Dipole Moment	1503.02641	
+magdipole/ibarra2024_lz_magdipole.txt	refused by the loader guard	CITATION SUSPECT (audit 2026-08-11): this file is not a digitisation.	2408.15760	Fig. 3
+magdipole/lambiase2021_planck_cmb_magdipole.txt	registered, not loaded	Lambiase, Mohanty, Nautiyal & Rao 2021, Phys. Rev. D 104, 023519 (arXiv:2102.04840) - Fig. 3(b)	2102.04840	Fig. 3
+magdipole/lz_magdipole.txt	refused by the loader guard	LUX-ZEPLIN (LZ) Constraints on Dirac Magnetic Dipole Moment	2207.03764	
+magdipole/pandax4t2023_magdipole.txt	registered, not loaded	PandaX-4T Collaboration (Ning et al.) 2023, Nature 618, 47 - Fig. 3c		Fig. 3c
+rayleigh_even/fermi_lines_rayleigh_even.txt	loaded	Ackermann et al. 2015, Fig. 3, Fermi-LAT	1506.00013	Fig. 3
+rayleigh_even/hess_gc_rayleigh_even.txt	loaded	RECAST OF Abramowski et al. 2013 (H.E.S.S.), Fig. 4.	1301.1173	Fig. 4
+rayleigh_odd/fermi_lines_rayleigh_odd.txt	loaded	Ackermann et al. 2015, Fig. 3, Fermi-LAT	1506.00013	Fig. 3
+rayleigh_odd/hess_gc_rayleigh_odd.txt	loaded	RECAST OF Abramowski et al. 2013 (H.E.S.S.), Fig. 4.	1301.1173	Fig. 4
+rayleigh_scalar/README.txt	documentation			
+rayleigh_scalar/rayleigh_CB0_CTA_GC.txt	loaded	D. Barducci, D. Buttazzo, A. Dondarini, R. Franceschini, G. Marino,	2501.09073	FIGURE 1
+rayleigh_scalar/rayleigh_CB0_CTA_dSphs.txt	loaded	D. Barducci, D. Buttazzo, A. Dondarini, R. Franceschini, G. Marino,	2501.09073	FIGURE 1
+rayleigh_scalar/rayleigh_CB0_FERMI_double_line.txt	refused by the loader guard	CITATION SUSPECT (audit 2026-08-11): source cannot be pinned.	2501.09073	Fig. 1
+rayleigh_scalar/rayleigh_CB0_FERMI_single_line.txt	refused by the loader guard	CITATION SUSPECT (audit 2026-08-11): source cannot be pinned.	2501.09073	Fig. 1
+rayleigh_scalar/rayleigh_CB0_LZ2022.txt	loaded	D. Barducci, D. Buttazzo, A. Dondarini, R. Franceschini, G. Marino,	2501.09073	FIGURE 1
+rayleigh_scalar/rayleigh_CB0_XLZD200ty.txt	loaded	D. Barducci, D. Buttazzo, A. Dondarini, R. Franceschini, G. Marino,	2501.09073	FIGURE 1
+rayleigh_scalar/rayleigh_CB0_thermal_relic.txt	loaded	D. Barducci, D. Buttazzo, A. Dondarini, R. Franceschini, G. Marino,	2501.09073	FIGURE 1
+rayleigh_scalar/rayleigh_CW0_CTA_GC.txt	loaded	D. Barducci, D. Buttazzo, A. Dondarini, R. Franceschini, G. Marino,	2501.09073	FIGURE 1
+rayleigh_scalar/rayleigh_CW0_CTA_dSphs.txt	loaded	D. Barducci, D. Buttazzo, A. Dondarini, R. Franceschini, G. Marino,	2501.09073	FIGURE 1
+rayleigh_scalar/rayleigh_CW0_FERMI_double_line.txt	refused by the loader guard	CITATION SUSPECT (audit 2026-08-11): source cannot be pinned.	2501.09073	Fig. 1
+rayleigh_scalar/rayleigh_CW0_FERMI_single_line.txt	refused by the loader guard	CITATION SUSPECT (audit 2026-08-11): source cannot be pinned.	2501.09073	Fig. 1
+rayleigh_scalar/rayleigh_CW0_LZ2022.txt	loaded	D. Barducci, D. Buttazzo, A. Dondarini, R. Franceschini, G. Marino,	2501.09073	FIGURE 1
+rayleigh_scalar/rayleigh_CW0_XLZD200ty.txt	loaded	D. Barducci, D. Buttazzo, A. Dondarini, R. Franceschini, G. Marino,	2501.09073	FIGURE 1
+rayleigh_scalar/rayleigh_CW0_thermal_relic.txt	loaded	D. Barducci, D. Buttazzo, A. Dondarini, R. Franceschini, G. Marino,	2501.09073	FIGURE 1

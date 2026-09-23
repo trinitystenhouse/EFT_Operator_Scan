@@ -1,0 +1,15 @@
+# Arina et al. 2020 (arXiv:2005.12789) - Fig. 10
+# XENON1T direct detection constraint (95% CL)
+# Operator: Dirac electric dipole (dim-5), hypercharge form factor
+# y-axis convention: Lambda / C_el  [GeV]  (dim-5 operator)
+# Note: electric dipole DD response is momentum-suppressed relative to magnetic dipole
+# mchi_GeV  lambda_plot_GeV
+6.0e0   1.0e2
+1.0e1   2.0e2
+3.0e1   8.0e2
+1.0e2   5.0e3
+3.0e2   4.0e4
+1.0e3   3.0e5
+3.0e3   1.5e6
+1.0e4   4.0e6
+1.0e5   8.0e9

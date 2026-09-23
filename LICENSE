@@ -1,0 +1,82 @@
+LICENCE
+=======
+
+This deposit contains three kinds of material with three different owners, so it
+carries three licence terms. Read the split before reusing anything.
+
+Deposit for "Photon-Dark Matter Elastic Scattering: An Effective-Operator Scan
+and First Operator-Resolved Sensitivity Estimates from the Galactic Halo"
+(arXiv:2608.29546). Concept DOI 10.5281/zenodo.21703809.
+
+
+1. CODE -- MIT Licence
+----------------------
+
+Applies to every .py and .sh file in this deposit: the figure scripts at the
+root, core/, constraint_generation/, helpers/, constraints_data/limits.py, the
+scripts in constraint_boundaries/toys/, and scripts/reproduce_production.sh.
+
+Copyright (c) 2026 T. R. Stenhouse
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+2. DATA PRODUCED BY THIS WORK -- Creative Commons Attribution 4.0 International
+-------------------------------------------------------------------------------
+
+Applies to the outputs of the analysis: the thirteen production sensitivity
+grids and the two auxiliary curves in constraint_boundaries/, the calibration
+and expected-band outputs in constraint_boundaries/toys/, MANIFEST.tsv,
+README.md and this file.
+
+You are free to share and adapt this material for any purpose, including
+commercially, provided you give appropriate credit, link to the licence, and
+indicate if changes were made. Full terms:
+
+    https://creativecommons.org/licenses/by/4.0/legalcode
+
+Cite as the paper above, together with this deposit's DOI.
+
+
+3. THIRD-PARTY MATERIAL -- NOT ours to license
+-----------------------------------------------
+
+Two sets of files in this deposit are derived from other people's published
+work. Neither the MIT grant of section 1 nor the CC-BY grant of section 2
+extends to them, and nothing here licenses their reuse.
+
+(a) constraints_data/*/*.txt -- 53 curves digitised by us from figures published
+    by other groups (Arina et al. 2021; Ibarra et al. 2024; Hambye et al. 2021;
+    XENONnT 2023; LZ 2022; Fortin & Tait 2012; the Fermi-LAT and H.E.S.S. line
+    searches; CTA and XLZD projections). The underlying limits are the property
+    of their authors and publishers. The digitisation is ours, and carries our
+    reading error rather than theirs. constraints_data/PROVENANCE.tsv gives the
+    source paper, arXiv identifier and source figure for each file.
+
+    If you use one of these curves, cite the source paper, not this deposit. If
+    you redistribute one, satisfy yourself that the source permits it. They are
+    included here only so that the paper's figures can be redrawn exactly, which
+    is what the paper's Data Availability statement promises.
+
+(b) data/slatyer2016_feff_3keV.dat and data/slatyer2016_feff_PPPC_3keV.dat --
+    energy-deposition efficiency tables from Slatyer (2016), included under the
+    same reasoning and subject to that work's own terms.
+
+The per-bin posterior chains that drive the halo bounds are NOT in this deposit.
+They belong to the companion paper (arXiv:2607.08552) and are available with
+that work, under whatever terms it sets.

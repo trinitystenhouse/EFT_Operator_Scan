@@ -1,0 +1,115 @@
+# PandaX-4T Collaboration (Ning et al.) 2023, Nature 618, 47 - Fig. 3c
+# autoplot: no -- drawn explicitly in Figs. 3 and 5 by make_uv_translation_bounds.dd_dipole_bound(),
+#   which adds the dashed sqrt(m_chi) continuation above 1 TeV and the 10 GeV cut
+# "Limits on the luminance of dark matter from xenon recoil data": observed 90% CL upper limit on the DM magnetic
+#   dipole moment |mu_chi| (black solid line; the dashed line and green band are the median and +-1 sigma
+#   sensitivity and are NOT this curve). Commissioning run, 86.0 live days, 2.67 t fiducial mass.
+# Operator: Dirac magnetic dipole (dim-5). Their Eq. (3): L_MD = (mu_chi/2) chibar sigma^{mu nu} chi F_{mu nu},
+#   the same normalisation as this analysis (mu = 2 C_M / Lambda). Standard Halo Model, their Extended Data Table 3.
+#   Statistics: two-sided profile likelihood ratio, their Eq. (9).
+# y-axis convention: Lambda / C_M = 2/mu [GeV]  (dim-5 operator; mu in GeV^-1)
+# Conversion: mu[GeV^-1] = |mu_chi|[mu_B] x mu_B, mu_B = e/(2 m_e) = 296.30 GeV^-1
+# Extraction method: publisher PDF (sha256 f8d05277...de03895f) page 3 rendered at 600 dpi with macOS PDFKit.
+#   x calibration: linear fit in log10 m to the major ticks 10, 1e2, 1e3 GeV, 487.5 px/decade, rms 0.24 px.
+#   y calibration: linear fit in log10 mu to 19 major and minor ticks between 1e-10 and 1e-7 mu_B,
+#   133.0 px/decade, rms 0.37 px, max 0.58 px (5 ticks crossed by curves near
+#   2e-9 - 9e-9 excluded; the broken axis sections above 1e-7 and below 1e-10 are not used). Per pixel column, the
+#   centroid of the lowest navy (R,G < 0.3; 0.3 < B < 0.8) pixel run, i.e. the observed limit, which lies below the
+#   dashed median at every mass (checked by overlay); averaged in 0.025-dex bins of m_chi.
+#   1 px = 0.0075 dex in mu (1.7%).
+# Checks: minimum 4.72e-10 mu_B at m_chi = 19.5 GeV (paper text: 4.8e-10 mu_B at 20-40 GeV);
+#   slope d log mu / d log m_chi = 0.500 over 100-1000 GeV.
+# Range: m_chi = 5.31 - 1000 GeV, the plotted range of Fig. 3c.
+# mchi_GeV  lambda_plot_GeV
+5.3088e+00  1.8078e+06
+5.6234e+00  2.2012e+06
+5.9566e+00  2.6744e+06
+6.3096e+00  3.2261e+06
+6.6834e+00  3.8289e+06
+7.0795e+00  4.5540e+06
+7.4989e+00  5.1966e+06
+7.9433e+00  5.8533e+06
+8.4140e+00  6.5835e+06
+8.9125e+00  7.3965e+06
+9.4406e+00  8.1738e+06
+1.0000e+01  8.9256e+06
+1.0593e+01  9.6556e+06
+1.1220e+01  1.0445e+07
+1.1885e+01  1.1146e+07
+1.2589e+01  1.1701e+07
+1.3335e+01  1.2233e+07
+1.4125e+01  1.2627e+07
+1.4962e+01  1.2950e+07
+1.5849e+01  1.3348e+07
+1.6788e+01  1.3601e+07
+1.7783e+01  1.3808e+07
+1.8836e+01  1.4070e+07
+1.9953e+01  1.4326e+07
+2.1135e+01  1.4336e+07
+2.2387e+01  1.4336e+07
+2.3714e+01  1.4336e+07
+2.5119e+01  1.4336e+07
+2.6607e+01  1.4326e+07
+2.8184e+01  1.4131e+07
+2.9854e+01  1.4090e+07
+3.1623e+01  1.3922e+07
+3.3497e+01  1.3848e+07
+3.5481e+01  1.3660e+07
+3.7584e+01  1.3503e+07
+3.9811e+01  1.3204e+07
+4.2170e+01  1.2930e+07
+4.4668e+01  1.2654e+07
+4.7315e+01  1.2375e+07
+5.0119e+01  1.2005e+07
+5.3088e+01  1.1572e+07
+5.6234e+01  1.1184e+07
+5.9566e+01  1.0978e+07
+6.3096e+01  1.0790e+07
+6.6834e+01  1.0597e+07
+7.0795e+01  1.0408e+07
+7.4989e+01  1.0229e+07
+7.9433e+01  1.0047e+07
+8.4140e+01  9.8313e+06
+8.9125e+01  9.5517e+06
+9.4406e+01  9.2467e+06
+1.0000e+02  8.9514e+06
+1.0593e+02  8.6549e+06
+1.1220e+02  8.3767e+06
+1.1885e+02  8.1797e+06
+1.2589e+02  8.0046e+06
+1.3335e+02  7.8333e+06
+1.4125e+02  7.6418e+06
+1.4962e+02  7.4799e+06
+1.5849e+02  7.3198e+06
+1.6788e+02  7.1476e+06
+1.7783e+02  6.9946e+06
+1.8836e+02  6.8499e+06
+1.9953e+02  6.6802e+06
+2.1135e+02  6.5032e+06
+2.2387e+02  6.3092e+06
+2.3714e+02  6.1386e+06
+2.5119e+02  5.9641e+06
+2.6607e+02  5.7778e+06
+2.8184e+02  5.5973e+06
+2.9854e+02  5.4146e+06
+3.1623e+02  5.2304e+06
+3.3497e+02  5.0524e+06
+3.5481e+02  4.8756e+06
+3.7584e+02  4.7009e+06
+3.9811e+02  4.5475e+06
+4.2170e+02  4.4309e+06
+4.4668e+02  4.3080e+06
+4.7315e+02  4.1855e+06
+5.0119e+02  4.0681e+06
+5.3088e+02  3.9508e+06
+5.6234e+02  3.8413e+06
+5.9566e+02  3.7374e+06
+6.3096e+02  3.6311e+06
+6.6834e+02  3.5302e+06
+7.0795e+02  3.4300e+06
+7.4989e+02  3.3301e+06
+7.9433e+02  3.2447e+06
+8.4140e+02  3.1547e+06
+8.9125e+02  3.0635e+06
+9.4406e+02  2.9779e+06
+1.0000e+03  2.9162e+06

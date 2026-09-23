@@ -1,0 +1,11 @@
+# Arina et al. 2020 (arXiv:2005.12789) - Fig. 13 (top right)
+# HESS gamma-ray line search: Galactic Centre, Einasto profile (95% CL)
+# Operator: Dirac magnetic dipole (dim-5) including dim-6 double-insertion → γγ, γZ
+# y-axis convention: Lambda / C_M  [GeV]  (dim-5 operator)
+# Note: HESS dominates at mchi > ~1 TeV where dim-6 double-insertion kicks in
+# mchi_GeV  lambda_plot_GeV
+3.0e2   4.0e2
+1.0e3   2.5e3
+3.0e3   1.5e4
+1.0e4   4.0e4
+1.0e5   6.0e4
