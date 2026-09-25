@@ -47,7 +47,7 @@ recorded in its own grid, and a grid with inconsistent binning aborts the build.
 | `constraints_data/` | 57 | the loader, the digitised external limit curves, and `PROVENANCE.tsv` |
 | `data/` | 2 | Slatyer 2016 energy-deposition efficiency tables, used by the CMB comparison |
 | `constraint_boundaries/` | 15 | the thirteen production 90% CL grids, plus two auxiliary curves Fig. 3 draws |
-| `constraint_boundaries/toys/` | 25 | the four toy scripts and the calibration and expected-band outputs |
+| `constraint_boundaries/toys/` | 26 | the four toy scripts and the calibration and expected-band outputs |
 | `scripts/` | 1 | `reproduce_production.sh` |
 
 Every code file is the production version used for the paper; checksums are
@@ -85,7 +85,7 @@ Rayleigh boundary used for one overlay).
 | `toy_grid_<op>[_rho2.5].npz` | tau cache at Lambda = 1 on the 100-point mass axis, the 1200-point Lambda axis, and null-toy summary statistics |
 | `calibration_summary[_rho2.5].npz` | null-toy summary across operators |
 | `coverage[_rho2.5].npz` | signal-hypothesis calibration and coverage at twelve test points, 2x10^4 toys per point |
-| `expected_band_<op>[_rho2.5].npz` | median, 68% and 95% expected contours from 10^4 null toys, for the three Fig. 3 operators |
+| `expected_band_<op>[_rho2.5].npz` | median, 68% and 95% expected contours from 10^4 null toys: for the three Fig. 3 operators on both profiles, and `expected_band_rayleigh_even.npz` (rho^2) for Fig. 5 (left) |
 
 **The pseudo-experiments themselves are not stored, and do not need to be.** A
 toy is a vector of eight per-bin fluxes drawn from the posterior chains; the
@@ -101,7 +101,33 @@ here, and the seeds fixed at the top of those scripts:
 
 `run_coverage.py` spawns one independent stream per test point from a
 `numpy.random.SeedSequence` on that seed, so the twelve points are reproducible
-individually.
+individually. `run_expected.py` likewise spawns one stream per operator, in the
+order the operators are given to `--ops`.
+
+The commands that produced the expected-band files, from the root of this
+deposit (each needs the companion paper's chains, see below):
+
+| file | command |
+|---|---|
+| `expected_band_{dipole_magnetic,rayleigh_full,scalar_rayleigh}.npz` | `python3 constraint_boundaries/toys/run_expected.py 10000` |
+| `expected_band_{dipole_magnetic,rayleigh_full,scalar_rayleigh}_rho2.5.npz` | `python3 constraint_boundaries/toys/run_expected.py 10000 --profile pixelwise_global_rho2.5` |
+| `expected_band_rayleigh_even.npz` | `python3 constraint_boundaries/toys/run_expected.py 10000 --ops rayleigh_even --chi2-check-tol 1e-3` |
+
+Before drawing toys, `run_expected.py` checks that the chi2 grid rebuilt from
+`toy_grid_<op>.npz` matches the production grid's `chi2_grid`, to a relative
+tolerance set by `--chi2-check-tol` (default 1e-4). For `rayleigh_even` the two
+agree to 4.8e-4, and the rebuilt 90% CL contour matches the production contour
+to 1.7e-5 dex, so that file is generated with `--chi2-check-tol 1e-3`.
+`--out-dir` writes the output to another directory.
+
+### Figure 5 (left)
+
+The dark-Higgs portal panel maps the rho^2 parity-even fermionic Rayleigh
+contour (`mcmc_pixelwise_global_rho2_halo_raw_attenuation_fermionic_rayleigh_even_majorana_profnorm_removalfix_90cl.npz`)
+through the matching of the paper's Sec. VI A, one curve per benchmark mass
+(`FIG5_MCHI_LIST` in `make_paper_results_figures.py`), each with its 68%
+expected band from `expected_band_rayleigh_even.npz`. The matching is in
+`make_uv_translation_bounds.py` (`dark_higgs_lambda_R`, `dark_higgs_bound`).
 
 ## Related material
 

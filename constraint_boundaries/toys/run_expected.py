@@ -19,6 +19,19 @@ Configurations (statistic, threshold):
     b_nominal     chi2 - chi2(0)   at 4.61
     b_calibrated  chi2 - chi2(0)   at median q90(b)   from coverage.npz
 
+Start-up check tolerance: before any toys are drawn, the chi2 grid rebuilt
+from toy_grid_<op>.npz is compared with the production grid's chi2_grid and
+must agree to --chi2-check-tol in max|ratio - 1| (default 1e-4). The Fig. 5
+dark-Higgs band, expected_band_rayleigh_even.npz, was produced with
+--chi2-check-tol 1e-3 (the rayleigh_even tau cache reproduces the production
+chi2 grid to 4.8e-4, and its contour to 1.7e-5 dex):
+
+    python3 constraint_boundaries/toys/run_expected.py 10000 --ops rayleigh_even --chi2-check-tol 1e-3
+
+Each operator draws from its own stream, spawned from SEED in --ops order, so
+that command reproduces the file only with rayleigh_even as the sole --ops entry.
+--out-dir writes the expected_band_*.npz files elsewhere (default: this directory).
+
 REVISED 2026-09-14. Previously the per-toy contour was the last excluded GRID
 cell (quantised in 0.1-dex steps, coarser than the band itself), percentiles
 dropped no-contour toys (nanpercentile), and the calibrated threshold was a
@@ -74,6 +87,10 @@ def main():
     ap.add_argument("--chunk", type=int, default=500)
     ap.add_argument("--profile", default="pixelwise_global_rho2",
                     help="halo posterior; needs toy_grid_<op><tag>.npz from run_calibration.py --profile")
+    ap.add_argument("--chi2-check-tol", type=float, default=1e-4,
+                    help="start-up check: max|chi2_toy/chi2_production - 1| allowed (default 1e-4)")
+    ap.add_argument("--out-dir", type=Path, default=_HERE,
+                    help="directory for expected_band_*.npz (default: this directory)")
     a = ap.parse_args()
     tag = profile_tag(a.profile)
 
@@ -105,6 +122,9 @@ def main():
         pc = d["chi2_grid"].astype(float)
         ok = np.isfinite(pc) & (pc > 1e-3) & (pc < 1e3)
         chi2_dev = float(np.max(np.abs(c_as[ok] / pc[ok] - 1)))
+        if a.chi2_check_tol != 1e-4:
+            print(f"  [{op}] max|dchi2| abs = {float(np.max(np.abs(c_as[ok] - pc[ok]))):.2e}; "
+                  f"chi2 check tolerance {a.chi2_check_tol:.0e}")
         x_eval, y_as = envelope_contour(M, L, c_as - c_as.min(), 4.61)
         lam_asimov = 10 ** y_as
         from core.attenuation_eft import extract_90cl_boundary
@@ -114,7 +134,7 @@ def main():
                                           - np.log10(d["lambda_GeV"]))))
         print(f"\n  [{op}] checks: chi2 grid vs production max|ratio-1|={chi2_dev:.1e}; "
               f"envelope vs extractor {contour_dev:.1e} dex; vs production contour {prod_dev:.1e} dex")
-        if chi2_dev > 1e-4 or contour_dev > 1e-6 or prod_dev > 1e-4:
+        if chi2_dev > a.chi2_check_tol or contour_dev > 1e-6 or prod_dev > 1e-4:
             raise RuntimeError(f"{op}: toy grid does not reproduce the {BOUNDARY_SUFFIX} production grid")
 
         # ---- toys -------------------------------------------------------------
@@ -149,7 +169,7 @@ def main():
         # plotting keys: production statistic and threshold
         P = rec["a_nominal_pct"]
         rec.update(lam_lo95=P[0], lam_lo68=P[1], lam_med=P[2], lam_hi68=P[3], lam_hi95=P[4])
-        out = _HERE / f"expected_band_{op}{tag}.npz"
+        out = Path(a.out_dir) / f"expected_band_{op}{tag}.npz"
         np.savez_compressed(out, **rec)
 
         # ---- summary ------------------------------------------------------------

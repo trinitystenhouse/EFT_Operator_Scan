@@ -105,7 +105,7 @@ G_STAR  = 1.0            # generic dark-sector gauge coupling for the translatio
 
 
 # =============================================================================
-# Halo-derived scattering bound → Λ_R (scalar Rayleigh) and Λ_a (anapole)
+# Halo-derived scattering bound → Λ_R (fermionic Rayleigh, even) and Λ_a (anapole)
 # =============================================================================
 
 # Tag inserted before "_90cl" when locating boundary files. Mirrors
@@ -139,10 +139,50 @@ def _load_halo_lambda(operator_key: str, dm_type: str,
     return m[finite], L[finite]
 
 
+# Halo contour that Lambda_R is read from in dark_higgs_bound(). Keys are
+# (operator_key, dm_type, majorana) for _load_halo_lambda().
+#
+# The portal is matched (Eq. dh_to_rayleigh, Sec. VI A) onto the dimension-7
+# fermionic Rayleigh operator c_s/Lambda^3 chibar chi F F: CP-even h and h'
+# exchange between chibar chi and the h -> gamma gamma loop gives the
+# parity-even structure, and the paper uses one squared amplitude for Dirac and
+# Majorana at equal Wilson coefficient, so Fig. 5 (left) inverts the rho^2
+# rayleigh_even (majorana) contour. "scalar_rayleigh" selects the dimension-6
+# scalar Rayleigh contour (phi^2 F F / Lambda^2) instead, as an alternative
+# reading kept available for comparison.
+DARK_HIGGS_LAMBDA_SOURCES = {
+    "rayleigh_even":   ("rayleigh_even", "fermionic", True),    # default, used in Fig. 5
+    "scalar_rayleigh": ("scalar_rayleigh", "scalar", False),    # dimension-6 scalar contour
+}
+
+
+def dark_higgs_lambda_R(m_chi_GeV: float, operator: str = "rayleigh_even") -> float:
+    """Halo 90% CL Lambda_R [GeV] at m_chi, from the selected rho^2 contour.
+
+    The fermionic Rayleigh contour is NOT flat in mass (Lambda_R rises by
+    ~0.33 dex between 10 MeV and 1 GeV), so it is interpolated linearly in
+    (log m, log Lambda) rather than read off the nearest grid point.
+    """
+    key, dm, maj = DARK_HIGGS_LAMBDA_SOURCES[operator]
+    m_grid, lam_grid = _load_halo_lambda(key, dm, majorana=maj)
+    if not (m_grid[0] <= m_chi_GeV <= m_grid[-1]):
+        raise ValueError(f"m_chi = {m_chi_GeV} GeV outside the {key} contour "
+                         f"[{m_grid[0]:.3g}, {m_grid[-1]:.3g}] GeV")
+    return float(np.exp(np.interp(np.log(m_chi_GeV), np.log(m_grid), np.log(lam_grid))))
+
+
 def dark_higgs_bound(m_hprime_GeV: np.ndarray,
                        m_chi_GeV: float = 500.0,
-                       vp_GeV: float = 246.0) -> np.ndarray:
+                       vp_GeV: float = 246.0,
+                       operator: str = "rayleigh_even") -> np.ndarray:
     """Halo-required |sin theta| as a function of m_h', at fixed m_chi.
+
+    Lambda_R is the rho^2 halo 90% CL scale of the fermionic parity-even
+    Rayleigh operator (rayleigh_even, majorana grid) at m_chi, interpolated in
+    log-log; operator="scalar_rayleigh" reads the dimension-6 scalar contour.
+    With vp = v the returned B times (m_chi / v) is independent of m_chi except
+    through Lambda_R(m_chi), which is not flat, so each scatterer mass gives its
+    own curve.
 
     The caller multiplies by (m_chi / v_EW) to obtain the required portal
     coupling y_chi H = y_chi sin(theta), which is what Fig. 5 (left) plots.
@@ -182,10 +222,7 @@ def dark_higgs_bound(m_hprime_GeV: np.ndarray,
     while the LHC bound restricts theta <= 0.336 rad, so the upper root is
     already excluded by the constraint overlaid on this panel.
     """
-    m_grid, lam_grid = _load_halo_lambda("scalar_rayleigh", "scalar")
-    # Closest halo bound to the fiducial scatterer mass.
-    idx = int(np.argmin(np.abs(m_grid - m_chi_GeV)))
-    lam_R = float(lam_grid[idx])
+    lam_R = dark_higgs_lambda_R(m_chi_GeV, operator)
     F_loop = 1.0  # O(1) loop factor; absorbed into the definition of the ceiling.
     m_hp = np.asarray(m_hprime_GeV, dtype=float)
 
@@ -196,7 +233,7 @@ def dark_higgs_bound(m_hprime_GeV: np.ndarray,
         B = (np.pi * V_EW * vp_GeV) / (ALPHA * F_loop * m_chi_GeV) / (lam_R**3 * bracket)
 
     # B is the REQUIRED sin(theta)cos(theta). We return it directly rather than
-    # inverting to sin(theta), because over this whole panel B >~ 3e3, so
+    # inverting to sin(theta), because over this whole panel B >~ 3e2 (1 GeV benchmark at m_h' = 1 MeV), so
     # 2B >= 1 everywhere and no mixing angle solves the matching at all. The
     # exact inversion would therefore return NaN/inf at every point and blank
     # the figure, discarding the very quantity it exists to show: how far the

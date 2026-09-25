@@ -107,6 +107,10 @@ then
     "${PYTHON}" "${TOYS}/run_coverage.py" 20000 --profile pixelwise_global_rho2.5
     "${PYTHON}" "${TOYS}/run_expected.py" 10000                                    # seed 20260809
     "${PYTHON}" "${TOYS}/run_expected.py" 10000 --profile pixelwise_global_rho2.5
+    # Fig. 5 (left): the parity-even fermionic Rayleigh band, rho^2. Its tau
+    # cache reproduces the production chi2 grid to 4.8e-4, hence the 1e-3
+    # start-up tolerance (the default is 1e-4).
+    "${PYTHON}" "${TOYS}/run_expected.py" 10000 --ops rayleigh_even --chi2-check-tol 1e-3
 fi
 
 echo "[figures] all five"

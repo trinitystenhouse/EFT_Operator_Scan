@@ -414,6 +414,7 @@ EXPECTED_BAND_OPERATOR = {                  # Fig. 3/4 panel key -> toy operator
     "dipole_magnetic":        "dipole_magnetic",
     "rayleigh_full_majorana": "rayleigh_full",
     "scalar_rayleigh":        "scalar_rayleigh",
+    "rayleigh_even_majorana": "rayleigh_even",   # Fig. 5 (left), dark-Higgs portal
 }
 
 
@@ -1885,10 +1886,8 @@ def f5_uv_translation_bounds(out_dir: Path) -> Path:
     # of Eq. (dh_to_rayleigh) needs |t| << m_h'^2, and |t|_max ~ 2 m_chi
     # omega_max, so the onset is sqrt(2 m_chi omega_max) and depends on the
     # scatterer mass. It was previously one round number (5.0 GeV) for all
-    # three benchmarks. That is now the only benchmark-specific content in the
-    # panel: since the corrected Lambda_R is flat in mass the three required-
-    # coupling curves coincide, so without per-benchmark onsets the three
-    # legend entries would carry no information at all.
+    # three benchmarks. Each onset line shares its line style with that
+    # benchmark's required-coupling curve below.
     # omega_max is the highest RETAINED bin and is unmoved by the 8-bin
     # selection, since dropping the lowest bin does not touch the top of the band.
     _OMEGA_MAX = 168.9                                   # GeV
@@ -1943,53 +1942,53 @@ def f5_uv_translation_bounds(out_dir: Path) -> Path:
               bbox=dict(boxstyle="round,pad=0.15", fc=_ink("white"), ec="none", alpha=0.70))
 
     # One colour for every "this work" curve -- cols[5], the same halo colour
-    # the right-hand panel uses -- with the benchmarks separated by linestyle
-    # alone. The 100 MeV and 1 GeV curves agree to ~2% (the m_chi dependence
-    # cancels in y_{chi H} except through the halo scale) and would otherwise
-    # plot on top of one another, so the second is drawn wide and pale
-    # underneath and the third narrow and solid-toned on top: both stay
-    # visible without either being displaced or recoloured.
-    _MCHI_COLORS = [cols[5]] * 3
-    _MCHI_LWS    = [1.3, 2.6, 1.0]
-    _MCHI_ALPHAS = [1.0, 0.40, 1.0]
-
-    # The corrected matching makes the required coupling independent of m_chi
-    # except through Lambda_R, and the corrected Lambda_R is flat in mass, so
-    # the three benchmark curves agree to 3 significant figures. Drawing three
-    # coincident lines reads as a rendering fault; we draw ONE and say so, and
-    # move the benchmark distinction entirely onto the onset markers above.
-    _m0 = FIG5_MCHI_LIST[0]
-    _y_chiH = (_m0 / V_EW) * dark_higgs_bound(m_hp, m_chi_GeV=_m0)
-    # Clip at the panel ceiling: the peak height at m_h' = m_h is set by how
-    # close the grid samples the pole, not by physics -- refine the grid and it
-    # rises without limit. Clipping makes it read as the divergence it is
-    # rather than as a resonance with a quotable height.
-    _y_plot = np.where(np.isfinite(_y_chiH), np.minimum(_y_chiH, _H_YMAX), _H_YMAX)
-    _h_this, = ax_h.loglog(
-        m_hp, _y_plot, color=_MCHI_COLORS[0],
-        lw=LINEWIDTH * 1.3, ls="-", alpha=1.0, zorder=4,
-        label=r"This work (all three $m_\chi$ benchmarks)",
-    )
-    # 68% expected band, carried through the matching: y_chiH ~ Lambda_R^-3, so
-    # the LOWER Lambda edge is the UPPER coupling edge. Scaled off the same
-    # nearest-mass Lambda_R that dark_higgs_bound() reads, so the band brackets
-    # the drawn curve exactly.
-    _band_dh = _expected_band("scalar_rayleigh")
-    if _band_dh is not None:
-        from make_uv_translation_bounds import _load_halo_lambda
-        _mg, _lg = _load_halo_lambda("scalar_rayleigh", "scalar")
-        _lam_R = float(_lg[int(np.argmin(np.abs(_mg - _m0)))])
-        _mb, _lo, _hi = _band_dh
-        _k = int(np.argmin(np.abs(_mb - _m0)))
-        _lo_R = float(_fig3_rescale_lambda(_lo[_k], "scalar_rayleigh")[0])
-        _hi_R = float(_fig3_rescale_lambda(_hi[_k], "scalar_rayleigh")[0])
-        with np.errstate(invalid="ignore"):
-            ax_h.fill_between(m_hp, np.minimum(_y_plot * (_lam_R / _hi_R) ** 3, _H_YMAX),
-                              np.minimum(_y_plot * (_lam_R / _lo_R) ** 3, _H_YMAX),
-                              color=_MCHI_COLORS[0], alpha=EXPECTED_BAND_ALPHA, lw=0, zorder=3.9)
-        print(f"  [Fig5 left] 68% band on y_chiH at m_chi = {_m0:g} GeV: "
-              f"x{(_lam_R / _hi_R) ** 3:.3f} to x{(_lam_R / _lo_R) ** 3:.3f} "
-              f"({3 * np.log10(_hi_R / _lo_R):.3f} dex)")
+    # the right-hand panel uses -- with the benchmarks separated by line style
+    # alone, the same style as that benchmark's contact-limit onset line.
+    #
+    # Lambda_R is the rho^2 fermionic parity-even Rayleigh (rayleigh_even,
+    # majorana grid) scale that Eq. (dh_to_rayleigh) matches onto. That
+    # contour is not flat in mass (Lambda_R = 0.195 / 0.287 / 0.421 GeV at 10 MeV /
+    # 100 MeV / 1 GeV), and y_chiH ~ Lambda_R^-3, so the three benchmarks give
+    # three curves ~0.5 dex apart and each is drawn with its own Lambda_R.
+    from make_uv_translation_bounds import dark_higgs_lambda_R
+    _DH_OP, _DH_BAND_KEY = "rayleigh_even", "rayleigh_even_majorana"
+    _MCHI_COLORS = [cols[5]] * len(FIG5_MCHI_LIST)
+    _band_dh = _expected_band(_DH_BAND_KEY)
+    _y_curves = {}
+    for _k, _m_chi in enumerate(FIG5_MCHI_LIST):
+        _y_chiH = (_m_chi / V_EW) * dark_higgs_bound(m_hp, m_chi_GeV=_m_chi, operator=_DH_OP)
+        _y_curves[_m_chi] = _y_chiH
+        # Clip at the panel ceiling: the peak height at m_h' = m_h is set by how
+        # close the grid samples the pole, not by physics -- refine the grid and it
+        # rises without limit. Clipping makes it read as the divergence it is
+        # rather than as a resonance with a quotable height.
+        _y_plot = np.where(np.isfinite(_y_chiH), np.minimum(_y_chiH, _H_YMAX), _H_YMAX)
+        _ls = _MCHI_STYLES[_k % len(_MCHI_STYLES)]
+        ax_h.loglog(
+            m_hp, _y_plot, color=_MCHI_COLORS[_k],
+            lw=LINEWIDTH * 1.3, ls=_ls, alpha=1.0, zorder=4,
+            label=fr"This work, {_mchi_legend(_m_chi)}",
+        )
+        # 68% expected band, carried through the matching: y_chiH ~ Lambda_R^-3,
+        # so the LOWER Lambda edge is the UPPER coupling edge. Band edges are
+        # interpolated in log-log at this benchmark's own m_chi and scaled off the
+        # same interpolated Lambda_R that dark_higgs_bound() uses, so the band
+        # brackets the drawn curve exactly.
+        if _band_dh is not None:
+            _lam_R = dark_higgs_lambda_R(_m_chi, _DH_OP)
+            _mb, _lo, _hi = _band_dh
+            _okb = np.isfinite(_lo) & np.isfinite(_hi) & (_lo > 0) & (_hi > 0)
+            _lo_R = float(np.exp(np.interp(np.log(_m_chi), np.log(_mb[_okb]), np.log(_lo[_okb]))))
+            _hi_R = float(np.exp(np.interp(np.log(_m_chi), np.log(_mb[_okb]), np.log(_hi[_okb]))))
+            _lo_R = float(_fig3_rescale_lambda(_lo_R, _DH_BAND_KEY)[0])
+            _hi_R = float(_fig3_rescale_lambda(_hi_R, _DH_BAND_KEY)[0])
+            with np.errstate(invalid="ignore"):
+                ax_h.fill_between(m_hp, np.minimum(_y_plot * (_lam_R / _hi_R) ** 3, _H_YMAX),
+                                  np.minimum(_y_plot * (_lam_R / _lo_R) ** 3, _H_YMAX),
+                                  color=_MCHI_COLORS[_k], alpha=EXPECTED_BAND_ALPHA, lw=0, zorder=3.9)
+            print(f"  [Fig5 left] m_chi = {_m_chi:g} GeV: Lambda_R = {_lam_R:.4f} GeV; 68% band on y_chiH "
+                  f"x{(_lam_R / _hi_R) ** 3:.3f} to x{(_lam_R / _lo_R) ** 3:.3f} "
+                  f"({3 * np.log10(_hi_R / _lo_R):.3f} dex)")
 
     ax_h.axhline(y_lhc_pert, color=_gold_edge, lw=LINEWIDTH * 1.25, ls="-", zorder=5)
     ax_h.axhline(y_pert, color=_gold_edge, lw=LINEWIDTH * 0.9, ls=":", zorder=5)
@@ -2041,19 +2040,23 @@ def f5_uv_translation_bounds(out_dir: Path) -> Path:
               fontweight="bold", ha="left", va="center", zorder=10)
 
     # The headline number: how far the required coupling sits above anything
-    # achievable. Measured on the LOWEST (most conservative) benchmark and
-    # computed here rather than hard-coded, so it cannot go stale.
+    # achievable. Computed here rather than hard-coded, so it cannot go stale.
+    # The benchmarks give different curves, so the arrow is
+    # drawn to the LOWEST curve (largest Lambda_R, smallest gap): the "at least
+    # N dex" label then holds for every benchmark.
     _x_gap = 1.0e2
-    _m0 = FIG5_MCHI_LIST[0]
-    _y_gap_hi = float((_m0 / V_EW) * dark_higgs_bound(np.array([_x_gap]), m_chi_GeV=_m0)[0])
+    _y_gap_hi = min(float((_m / V_EW) * dark_higgs_bound(np.array([_x_gap]), m_chi_GeV=_m,
+                                                         operator=_DH_OP)[0])
+                    for _m in FIG5_MCHI_LIST)
     _decades = np.log10(_y_gap_hi / y_lhc_pert)
+    print(f"  [Fig5 left] gap at m_h' = {_x_gap:g} GeV to the lowest curve: {_decades:.2f} dex")
     ax_h.annotate("", xy=(_x_gap, _y_gap_hi), xytext=(_x_gap, y_lhc_pert),
                   arrowprops=dict(arrowstyle="<->", color=_ink("0.25"), lw=1.1,
                                   shrinkA=0, shrinkB=0), zorder=7)
     # Horizontal, in dex (house style for a logarithmic offset). The rotated
     # "decades" tag it replaces ran along the arrow and crowded it.
     ax_h.text(_x_gap * 1.5, 10.0 ** (0.5 * np.log10(y_lhc_pert * _y_gap_hi) + 0.8),
-              fr"$\gtrsim{_decades:.0f}$ dex",
+              fr"$\gtrsim{np.floor(_decades):.0f}$ dex",   # floor, not round: a lower bound
               color=_ink("0.15"), fontsize=ANNOT_FS, fontweight="bold",
               ha="left", va="center", zorder=10,
               bbox=dict(boxstyle="round,pad=0.15", fc=_ink("white"), ec="none", alpha=0.80))
