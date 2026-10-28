@@ -1,0 +1,40 @@
+cff-version: 1.2.0
+message: "If you use this deposit, please cite the paper below and the Zenodo deposit."
+title: "EFT_Operator_Scan: code and data deposit for the photon-dark matter effective-operator scan"
+type: software
+authors:
+  - family-names: Stenhouse
+    given-names: Trinity R.
+    orcid: "https://orcid.org/0009-0007-5174-739X"
+    affiliation: "Department of Physics and Astronomy, University College London"
+doi: "10.5281/zenodo.21703809"
+repository-code: "https://github.com/trinitystenhouse/EFT_Operator_Scan"
+license: MIT
+keywords:
+  - dark matter
+  - effective field theory
+  - photon-dark matter scattering
+  - gamma-ray astronomy
+  - Fermi-LAT
+preferred-citation:
+  type: article
+  title: "Photon-Dark Matter Elastic Scattering: An Effective-Operator Scan and First Operator-Resolved Sensitivity Estimates from the Galactic Halo"
+  authors:
+    - family-names: Stenhouse
+      given-names: Trinity R.
+      orcid: "https://orcid.org/0009-0007-5174-739X"
+    - family-names: Acar
+      given-names: A.
+    - family-names: Bashkanov
+      given-names: M.
+    - family-names: Deppisch
+      given-names: Frank F.
+    - family-names: Ghag
+      given-names: Chamkaur
+    - family-names: Watts
+      given-names: D. P.
+  year: 2026
+  identifiers:
+    - type: other
+      value: "arXiv:2608.29546"
+  url: "https://arxiv.org/abs/2608.29546"

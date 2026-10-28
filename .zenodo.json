@@ -1,0 +1,27 @@
+{
+  "title": "EFT_Operator_Scan: code and data deposit for the photon-dark matter effective-operator scan",
+  "upload_type": "software",
+  "description": "Code, production sensitivity grids, calibration and expected-band outputs, and fixed random seeds that reproduce every figure of arXiv:2608.29546, \"Photon-Dark Matter Elastic Scattering: An Effective-Operator Scan and First Operator-Resolved Sensitivity Estimates from the Galactic Halo\".",
+  "creators": [
+    {
+      "name": "Stenhouse, Trinity R.",
+      "orcid": "0009-0007-5174-739X",
+      "affiliation": "Department of Physics and Astronomy, University College London"
+    }
+  ],
+  "license": "cc-by-4.0",
+  "keywords": [
+    "dark matter",
+    "effective field theory",
+    "photon-dark matter scattering",
+    "gamma-ray astronomy",
+    "Fermi-LAT"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "arXiv:2608.29546",
+      "relation": "isSupplementTo",
+      "scheme": "arxiv"
+    }
+  ]
+}

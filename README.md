@@ -2,7 +2,17 @@
 
 Deposit for **"Photon-Dark Matter Elastic Scattering: An Effective-Operator Scan
 and First Operator-Resolved Sensitivity Estimates from the Galactic Halo"**
-(arXiv:2608.29546). Concept DOI 10.5281/zenodo.21703809.
+(T. R. Stenhouse, A. Acar, M. Bashkanov, F. F. Deppisch, C. Ghag, D. P. Watts,
+[arXiv:2608.29546](https://arxiv.org/abs/2608.29546)). Concept DOI
+[10.5281/zenodo.21703809](https://doi.org/10.5281/zenodo.21703809).
+
+| | |
+|---|---|
+| Paper | [arXiv:2608.29546](https://arxiv.org/abs/2608.29546) |
+| Archive | [doi:10.5281/zenodo.21703809](https://doi.org/10.5281/zenodo.21703809) (concept DOI, resolves to the latest version) |
+| Releases | `arXiv_300826` (arXiv v1), `25-09-26` (journal submission version) |
+| Licence | MIT for code, CC-BY-4.0 for data produced here (see Licence below) |
+| Companion | [Totani-Reanalysis](https://github.com/trinitystenhouse/Totani-Reanalysis), the halo analysis whose posterior chains drive the bounds |
 
 This deposit exists to satisfy one sentence of the paper's Data Availability
 statement, and its contents are scoped to exactly that sentence:
@@ -187,4 +197,18 @@ stated in `LICENSE`.
 ## Provenance and integrity
 
 `MANIFEST.tsv` lists the relative path, size in bytes and SHA-256 of every file
-in this deposit.
+in this deposit. `CITATION.cff` and `.zenodo.json` are repository metadata and
+are not part of the manifest.
+
+## Citation
+
+Please cite the paper,
+
+> T. R. Stenhouse, A. Acar, M. Bashkanov, F. F. Deppisch, C. Ghag and
+> D. P. Watts, "Photon-Dark Matter Elastic Scattering: An Effective-Operator
+> Scan and First Operator-Resolved Sensitivity Estimates from the Galactic
+> Halo," [arXiv:2608.29546](https://arxiv.org/abs/2608.29546) (2026),
+
+and, for the code and grids, the deposit,
+[doi:10.5281/zenodo.21703809](https://doi.org/10.5281/zenodo.21703809).
+`CITATION.cff` carries both.
